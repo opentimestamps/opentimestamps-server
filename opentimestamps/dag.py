@@ -143,20 +143,6 @@ class Hash(Serializable):
     def __repr__(self):
         return "Hash(h='%s')" % str(self)
 
-def _lockable_property(name,doc):
-    underlying_name = '_' + name
-    def getx(self):
-        return getattr(self,underlying_name)
-    def setx(self,value):
-        if self.digest is None:
-            setattr(self,underlying_name,value)
-        else:
-            if not isinstance(value,Hash) or value.digest != getattr(self,underlying_name).digest:
-                raise TypeError("Changing property '%s' to '%r' would change the hash digest of %r" % (name,value,self))
-            setattr(self,underlying_name,value)
-
-    return property(getx,setx,None,doc)
-
 class SignatureVerificationError(Exception):
     pass
 
@@ -174,8 +160,8 @@ class DagVertex(Hash):
     'DagVertex\\x00algorithm\\x00\\x00\\x00\\x00\\x06sha256digest\\x00\\x00\\x00\\x00 \\xe5\\xa0\\x1f\\xee\\x14\\xe0\\xed\\\\HqO"\\x18\\x0f%\\xad\\x83e\\xb5?\\x97y\\xf7\\x9d\\xc4\\xa3\\xd7\\xe99c\\xf9Jleft\\x00\\x00\\x00\\x00 \\xca\\x97\\x81\\x12\\xca\\x1b\\xbd\\xca\\xfa\\xc21\\xb3\\x9a#\\xdcM\\xa7\\x86\\xef\\xf8\\x14|Nr\\xb9\\x80w\\x85\\xaf\\xeeH\\xbbright\\x00\\x00\\x00\\x00 >#\\xe8\\x16\\x009YJ3\\x89Oed\\xe1\\xb14\\x8b\\xbdz\\x00\\x88\\xd4,J\\xcbs\\xee\\xae\\xd5\\x9c\\x00\\x9d'
     """
 
-    left = _lockable_property('left',None)
-    right = _lockable_property('right',None)
+    left = None
+    right = None
 
     serialized_name = 'DagVertex'
     serialized_attributes = {'left':recursive_attr,
@@ -183,20 +169,7 @@ class DagVertex(Hash):
     digest_serialized_attributes = ('left','right')
 
     def lock(self):
-        """Lock the vertex, and calculate its digest.
-
-        Example:
-        >>> h1 = Hash.from_data('a')
-        >>> h2 = Hash.from_data('b')
-        >>> a = DagVertex(None,None)
-        >>> a.digest is None
-        True
-        >>> a.left = h1; a.right = h2
-        >>> a.lock()
-        >>> a.left = None
-        Traceback (most recent call last):
-        TypeError: Changing property 'left' to 'None' would change the hash digest of Hash(h='sha256:e5a01fee14e0ed5c48714f22180f25ad8365b53f9779f79dc4a3d7e93963f94a')
-        """
+        """Lock the vertex, and calculate its digest."""
         assert(self.digest is None)
         Hash.__init__(self,
                 Hash._calc_digest_from_data(self.left,self.right))

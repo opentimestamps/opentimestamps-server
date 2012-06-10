@@ -173,6 +173,11 @@ class Serializable(object):
                 r[attr] = default_handler
         return r
 
+
+    def _pre_serialize_hook(self):
+        """Runs just prior to any type of serialization."""
+        pass
+
     def _get_all_serialized_attributes(self):
         return self._walk_serialized_attributes('serialized_attributes',default_serialization_handler)
 
@@ -181,6 +186,7 @@ class Serializable(object):
 
     def json_serialize_to_dict(self):
         """Return an OrderedDict suitable for json.dump(s)"""
+        self._pre_serialize_hook()
         d = OrderedDict()
         d['class'] = self.serialized_name
 
@@ -207,6 +213,7 @@ class Serializable(object):
         return r
 
     def digest_serialize(self):
+        self._pre_serialize_hook()
         r = [] 
         r.append(self.serialized_name)
         r.append('\x00')

@@ -201,6 +201,10 @@ class DagVertex(Hash):
         Hash.__init__(self,
                 Hash._calc_digest_from_data(self.left,self.right))
 
+    def _pre_serialize_hook(self):
+        if self.digest is None:
+            raise ValueError("Can't serialize an unlocked DagVertex")
+
     def __init__(self,left,right,locked=False):
         self.digest = None
         self.left = left

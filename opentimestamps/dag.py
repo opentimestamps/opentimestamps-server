@@ -21,6 +21,21 @@ import binascii
 import Crypto.Hash.SHA256 as sha256
 from opentimestamps.serialize import *
 
+class HashCheckException(Exception):
+    """Exception for a failed Hash.check()"""
+    def __init__(self,msg,path,visited):
+        self.visited = visited
+
+        # Turn the linked list path into a list
+        l = []
+        p = path
+        while p is not None:
+            l.append(p[0])
+            p = p[1]
+        self.path = l
+
+        super(HashCheckException,self).__init__(msg)
+
 @register_serialized_class
 class Hash(Serializable):
     """Create a Hash with a given digest.
@@ -77,6 +92,34 @@ class Hash(Serializable):
             return self.digest
         else:
             return super(Hash,self).digest_serialize()
+
+    def _check(self,n,path,visited):
+        """Actual check() implementation.
+
+        path - Linked-list appended to at each step, so the failing Hash object
+               can be found. None for first level
+        visited - Set of all previously visited Hashes. (for efficiency)
+        """
+        visited.add(self)
+        if self.digest is None:
+            raise HashCheckException('Digest is None',(self,path),visited)
+        elif len(self.digest) != 32:
+            raise HashCheckException('Digest is invalid',(self,path),visited)
+
+    def check(self,n=-1):
+        """Preform a consistency check between the digest and the data.
+
+        Raises HashCheckException on failure.
+
+        n - Number of levels of recursion to follow. -1 for infinite.
+
+        >>> h = Hash('\\x00'*32)
+        >>> h.check()
+        >>> h.digest = None; h.check()
+        Traceback (most recent call last):
+        HashCheckException: Digest is None
+        """
+        self._check(n,None,set())
 
     def __cmp__(self,other):
         return cmp(self.digest,other.digest)
@@ -138,7 +181,10 @@ class Hash(Serializable):
         return Hash(Hash._calc_digest_from_data(*datas))
 
     def __str__(self):
-        return '%s:%s' % (self.algorithm,self.digest.encode("hex"))
+        if self.digest is not None:
+            return '%s:%s' % (self.algorithm,self.digest.encode("hex"))
+        else:
+            return '%s:None' % self.algorithm
 
     def __repr__(self):
         return "Hash(h='%s')" % str(self)
@@ -168,11 +214,59 @@ class DagVertex(Hash):
                              'right':recursive_attr}
     digest_serialized_attributes = ('left','right')
 
+    def _compute_digest(self):
+        # FIXME: Ugly, should eventually refactor this to computing a digest
+        # from data directly.
+        return Hash.from_data(self.left,self.right).digest
+
     def lock(self):
         """Lock the vertex, and calculate its digest."""
         assert(self.digest is None)
-        Hash.__init__(self,
-                Hash._calc_digest_from_data(self.left,self.right))
+        Hash.__init__(self,self._compute_digest())
+
+    def _check(self,n,path,visited):
+        """check() implementation.
+
+        Basics:
+        >>> h = DagVertex(None,None); h.check()
+        Traceback (most recent call last):
+        HashCheckException: Digest is None
+        >>> h.left = Hash.from_data(''); h.right = Hash.from_data(''); h.lock(); h.check() 
+        >>> h.left.digest = '\\x00' * 32; h.check()
+        Traceback (most recent call last):
+        HashCheckException: Digest does not match: stored '2dba5dbc339e7316aea2683faf839c1b7b1ee2313db792112588118df066aa35' != computed '1c9ecec90e28d2461650418635878a5c91e49f47586ecf75f2b0cbb94e897112'
+
+        Recursion level:
+        >>> h0 = DagVertex(h,Hash.from_data(''),locked=True); h0.check()
+        Traceback (most recent call last):
+        HashCheckException: Digest does not match: stored '2dba5dbc339e7316aea2683faf839c1b7b1ee2313db792112588118df066aa35' != computed '1c9ecec90e28d2461650418635878a5c91e49f47586ecf75f2b0cbb94e897112'
+        >>> h0.check(0)
+
+        Path is correctly calculated:
+        >>> h1 = DagVertex(h0,h0.right,locked=True);
+        >>> try:
+        ...     h1.check()
+        ... except HashCheckException as x:
+        ...     x.path
+        [Hash(h='sha256:2dba5dbc339e7316aea2683faf839c1b7b1ee2313db792112588118df066aa35'), Hash(h='sha256:a59e147aa340e4a9d990cbbbe737aee694d88ae674112f4d4f6d32187c70800f'), Hash(h='sha256:587cc92e4b03b90fd8bf56e182c3ee0e548797db42ccc8ddce92ecf0a656149b')]
+        """
+        super(DagVertex,self)._check(n,path,visited)
+
+        if self.digest is None:
+            raise HashCheckException('Digest is None',(self,path),visited)
+        elif self.left is None:
+            raise HashCheckException('left side is None',(self,path),visited)
+        elif self.left is None:
+            raise HashCheckException('right side is None',(self,path),visited)
+        elif not self.digest == self._compute_digest():
+            raise HashCheckException('Digest does not match: stored %r != computed %r' % \
+                    (self.digest.encode('hex'),self._compute_digest().encode('hex')),
+                    (self,path),visited)
+        elif n != 0:
+            if self.left not in visited:
+                self.left._check(n - 1,(self,path),visited)
+            if self.right not in visited:
+                self.right._check(n - 1,(self,path),visited)
 
     def _pre_serialize_hook(self):
         if self.digest is None:

@@ -28,8 +28,6 @@ from Crypto.Random import get_random_bytes
 import argparse
 import restkit
 
-from opentimestamps.dag import Hash,DagVertex
-
 parser = argparse.ArgumentParser(description="OpenTimestamps client.")
 
 class OpenTimestampsREST(restkit.Resource):
@@ -38,6 +36,8 @@ class OpenTimestampsREST(restkit.Resource):
 
     def submit(self,digest,nonce):
         # Create the base DagVertex
+
+        # FIXME: this isn't correct, we're still sending the server the raw hash without a nonce
         base_vertex = DagVertex(Hash(digest),Hash(nonce),locked=True)
         return self.post("submit",base_vertex.json_serialize())
 
@@ -84,9 +84,8 @@ def submit_command(args):
 
         r = server.submit(file_digest,nonce)
         print r.body_string()
-        print r.__dict__
 
-def extend_command(args):
+def complete_command(args):
     input_fd = None
     output_fd = None
     if args.timestamp is not '-':
@@ -121,11 +120,11 @@ parser.add_argument("-s","--server",action="append",
 subparsers = parser.add_subparsers(title='Subcommands',
                                    description='All operations are done through subcommands:')
 parser_submit = subparsers.add_parser('submit',#aliases=['s'],
-        help='Submit a hash.')
+        help='Submit data to be timestamped.')
 parser_submit.set_defaults(cmd_func=submit_command)
-parser_extend = subparsers.add_parser('extend',#aliases=['x'],
-        help='Extend a timestamp.')
-parser_extend.set_defaults(cmd_func=extend_command)
+parser_complete = subparsers.add_parser('complete',#aliases=['x'],
+        help='Complete a timestamp.')
+parser_complete.set_defaults(cmd_func=complete_command)
 parser_validate = subparsers.add_parser('validate',#aliases=['v'], aliases not supported in 2.7!
         help='Validate a timestamp.')
 parser_validate.set_defaults(cmd_func=validate_command)
@@ -139,8 +138,8 @@ parser_submit.add_argument("timestamp",action="store",nargs='?',
         help="Optionally specify filename to write timestamp to. Required if"\
         " input is standard input. Defaults to input.ots")
 
-parser_extend.add_argument("timestamp",action="store",
-        help="Filename of timestamp to extend. (or - for standard input)")
+parser_complete.add_argument("timestamp",action="store",
+        help="Filename of timestamp to complete. (or - for standard input)")
 
 parser_validate.add_argument("input",action="store",
         help="Input file validate timestamp of. (or - for standard input)")

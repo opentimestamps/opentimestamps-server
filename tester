@@ -1,0 +1,2 @@
+dd if=/dev/urandom of=foo bs=64 count=1
+./ots --server http://localhost:8080 submit foo /dev/null

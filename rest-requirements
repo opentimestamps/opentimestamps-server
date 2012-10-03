@@ -1,0 +1,17 @@
+caching
+
+authentication, multiple methods
+
+shared-process
+
+should be runnable from apache, as well as own server
+
+debugger
+
+ssl
+
+
+python-oauth2 is apparently very good
+
+
+cherrypy looks decent...

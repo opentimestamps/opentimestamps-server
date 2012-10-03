@@ -1,0 +1,116 @@
+setup liberal.pool.opentimestamps.org, which accepts new head hashes from
+anyone
+
+
+an interesting side-effect, will be the possibility of lots and lots of
+connections to the 0 null hash
+
+
+Hash.references = set()
+
+class Signature(Hash):
+    timestamp = Date
+    
+    notary = Notary
+
+# So notary will normally be a fall-back if we don't understand
+#
+# And crucially, will still have a nice digest so everything serializes properly
+class Notary(Hash):
+    # let this mean that all the stuff in dict is digested by default
+    digest_serializable = dict
+
+class GpgNotary(Notary):
+    # where-as if we understand what, say, a GpgNotary is, we can be specific
+    #
+    # although granted, maybe this is a bad idea, because then verification
+    # will fail if we get stuff from someone who's software has fields in
+    # addition to what we're expecting
+    digest_serializable = ('publickey',etc.)
+    publickey = str # for input right to gpg    
+
+class PublishedNotary(Notary):
+    # straight up bibtex reference
+    bibtex = utf8 
+
+class BitcoinCoinbaseNotary(Notary):
+    # good example of one a lot of server's won't understand
+    #
+    # the right fallback is probably just to instantiate a Notary instance with
+    # extra stuff in the __dict__
+    #
+    # or hell, make an "extra_dict" dict for stuff that we don't understand,
+    # and drop the ordering rule
+    block_number = int
+    offset = int
+
+
+or something like this:
+
+hash.vertex.signature.notary.gpgnotary
+
+with strict separation of the attr dicts for each level
+
+similarly, attr name namespacing:
+
+hash_instance.notary_gpg_pubkey
+hash_instance.signature_timestamp
+hash_instance.notary_published_bibtex
+
+could expose attributes in objects in the __dict__, while at the same time,
+when we can't understand an object, we hide it in an extra_dict, and then for
+the attribute names in the json/binary, use namespacing:
+
+{
+    "class": "Hash.DagVertex.SignedVertex", 
+    "source_hint": "server_url",
+    ".Hash.algorithm": "sha256", 
+    ".Hash.digest": "758edd553168ca1b77b624da80f49cd54b8dc908544cf0267cde8b48cd30153e", 
+    ".DagVertex.left": {
+        "class": "Hash", 
+        ".Hash.algorithm": "sha256", 
+        ".Hash.digest": "50cb7c9e53d6898e226955ca09a5a206472057ac62ad0878617fef5c4ff5ed17"
+    }, 
+    ".DagVertex.right": {
+        "class": "Hash", 
+        ".Hash.algorithm": "", # nice use for the null algorithm
+        ".Hash.digest": ""
+    }
+    ".Hash.DagVertex.SignedVertex.signature": {
+        "class": "Hash.Signature.GPGSignature",
+        ".Hash.algorithm": "sha256", 
+        ".Hash.digest": "50cb7c9e53d6898e226955ca09a5a206472057ac62ad0878617fef5c4ff5ed17"
+        ".Hash.Signature.notary": {
+            "class": "Hash.Notary.GPGNotary", 
+            ".Hash.algorithm": "sha256", 
+            ".Hash.digest": "50cb7c9e53d6898e226955ca09a5a206472057ac62ad0878617fef5c4ff5ed17",
+            ".Hash.Notary.GPGNotary.fingerprint": "DE4EFCA3E1AB9E41CE96CECB18C09E865EC948A1"
+            # note that V4 PGP fingerprints, the newest, are a fixed sha1 :(
+            # that said, given that we're hashing the actual signature, I don't
+            # see how this would be a problem
+            #
+            # also, I'm pretty sure the fingerprint is redundent...
+        }
+        ".Hash.Signature.GPGSignature.signature": "signature",
+    }
+}
+
+finally change the digest serialization so we always use exactly what is in the
+json so we can verify regardless of if we know stuff like how digests are
+encoded (although the Hash special case probably still makes sense as it lets
+us swap raw Hash's for subclasses later on)
+
+one thing to keep in mind that object-pass-thru from one server to another is
+very valuable, as it'll allow intermediate servers to ignore the details of how
+signatures and other stuff works
+
+
+also, how do we handle the fact that servers are going to want to pass hint
+data to each other? stuff like "source_hint: server_url"? in the above I've
+added a dot to indicate digestable stuff, although maybe the convention should
+be the other way around. Actually a leading "#" is a very "right" convention,
+but too ugly to use.
+
+
+should figure out how good compression of hex strings within other stuff is,
+base64 encoding may be a better idea, for instance for gpg signatures

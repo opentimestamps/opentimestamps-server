@@ -1,0 +1,23 @@
+import gpgme
+from io import BytesIO
+
+ctx = gpgme.Context()
+
+[key] = ctx.keylist('67E4FA04')
+ctx.signers = [key]
+
+plaintext = BytesIO('Hello World!')
+signature = BytesIO()
+
+signed = ctx.sign(plaintext,signature,gpgme.SIG_MODE_DETACH)
+
+signature.seek(0)
+plaintext.seek(0)
+
+sigs = ctx.verify(signature,plaintext,None)
+
+signature.seek(0)
+
+print len(signature.read())
+print sigs[0].fpr
+print key.subkeys[0].fpr

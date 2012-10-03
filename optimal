@@ -1,0 +1,36 @@
+#!/usr/bin/python
+# Testing 
+#
+# Copyright (C) 2012 Peter Todd <pete@petertodd.org>
+#
+# This file is part of OpenTimestamps.
+#
+# OpenTimestamps is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import sys
+
+from binascii import *
+from opentimestamps.dag import *
+from opentimestamps.calendar import *
+
+c = Calendar()
+for j in range(0,10):
+    digests = [Digest.from_data(str(i+10*j)) for i in range(0,4)]
+    m = create_optimal_tree(sorted(digests))
+    c.update(m)
+
+s = c.chain[-1].all_parents()
+s.add(c.chain[-1])
+
+print dagvertexes_to_dot(s)

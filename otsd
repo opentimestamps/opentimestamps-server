@@ -23,39 +23,16 @@ if sys.version_info[1] < 7:
     sys.exit("OpenTimestamps requires Python version 2.7.0 or newer. "\
              "(you have %d.%d.%d)"%sys.version_info[0:3])
 
-import argparse
-import cherrypy
-import binascii
-from opentimestamps.dag import *
-from opentimestamps.serialize import json_deserialize
+from jsonrpclib.SimpleJSONRPCServer import SimpleJSONRPCServer
 
-parser = argparse.ArgumentParser(description="OpenTimestamps client")
-verbosity_group = parser.add_mutually_exclusive_group()
-verbosity_group.add_argument("-q","--quiet",action="store_true",
-                             help="be quiet")
-verbosity_group.add_argument("-v","--verbose",action="store_true",
-                             help="be verbose")
+from opentimestamps.rpc import RpcInterface
 
-args = parser.parse_args()
+server = SimpleJSONRPCServer(("localhost",15175))
+server.register_introspection_functions()
 
-class OpenTimestampsServer(object):
-    @cherrypy.expose
-    def index(self):
-        return "Hello World!"
 
-    @cherrypy.expose
-    def submit(self):
-        cl = cherrypy.request.headers['Content-Length']
-        rawbody = cherrypy.request.body.read(int(cl))
-        new_dagvertex = json_deserialize(rawbody)
-        return 'submitted json is:\n%s' % new_dagvertex.json_serialize()
+rpc_interface = RpcInterface()
+server.register_instance(rpc_interface)
+server.register_function(lambda:dir(rpc_interface),'__dir__')
 
-    @cherrypy.expose
-    def hash(self,digest):
-        return 'hash digest is %s' % digest
-
-    @cherrypy.expose
-    def path(self,digest,dstspec):
-        return 'path from %s to %s' % (digest,dstspec)
-
-cherrypy.quickstart(OpenTimestampsServer())
+server.serve_forever()

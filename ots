@@ -23,23 +23,18 @@ if sys.version_info[1] < 7:
     sys.exit("OpenTimestamps requires Python version 2.7.0 or newer. "\
              "(you have %d.%d.%d)"%sys.version_info[0:3])
 
-import Crypto.Hash.SHA256 as sha256
-from Crypto.Random import get_random_bytes
+import hashlib
 import argparse
 import restkit
+import json
+import jsonrpclib
+import io
+import os
+
+from opentimestamps.dag import *
+from opentimestamps.serialization import *
 
 parser = argparse.ArgumentParser(description="OpenTimestamps client.")
-
-class OpenTimestampsREST(restkit.Resource):
-    def __init__(self,base_url,**kwargs):
-        super(OpenTimestampsREST,self).__init__(base_url,follow_redirects=False,**kwargs)
-
-    def submit(self,digest,nonce):
-        # Create the base DagVertex
-
-        # FIXME: this isn't correct, we're still sending the server the raw hash without a nonce
-        base_vertex = DagVertex(Hash(digest),Hash(nonce),locked=True)
-        return self.post("submit",base_vertex.json_serialize())
 
 def open_file_or_stdinout(name,mode):
     if name is '-':
@@ -63,39 +58,52 @@ def submit_command(args):
     input_fd = open_file_or_stdinout(args.input,'rb')
     timestamp_fd = open_file_or_stdinout(args.timestamp,'wb')
 
-    file_hash = sha256.new()
+    dag = MemoryDag()
 
+    file_digest = hashlib.sha256()
     while True:
-        d = input_fd.read(4096)
+        d = input_fd.read(io.DEFAULT_BUFFER_SIZE)
         if d == '':
             break
-        file_hash.update(d)
+        file_digest.update(d)
+    file_digest = file_digest.digest()
 
-    file_digest = file_hash.digest()
-
-    nonce = None
+    hash_op = None
     if not args.no_nonce:
-        nonce = get_random_bytes(32)
+        nonce = os.urandom(hashlib.sha256().digestsize)
+        hash_op = Hash(inputs=(file_digest,nonce),dag=dag)
     else:
-        nonce = '\x00' * 32
+        hash_op = Digest(digest=file_digest,dag=dag)
 
+    responses = []
     for server in args.server:
-        server = OpenTimestampsREST(server)
+        server = jsonrpclib.Server(server)
 
-        r = server.submit(file_digest,nonce)
-        print r.body_string()
+        json_digest = BytesType.json_serialize(hash_op.digest)
+        r = server.submit_digest(json_digest)
+        responses.append(r)
+
+    all_digests = responses
+    all_digests.append(json_serialize(hash_op))
+
+    timestamp_file_obj = ['OpenTimestamps v0.1',{u'hash_algorithm':u'sha256d'},all_digests]
+    json.dump(timestamp_file_obj,timestamp_fd,indent=4)
 
 def complete_command(args):
     input_fd = None
     output_fd = None
-    if args.timestamp is not '-':
+    if args.timestamp is '-':
         input_fd = open_file_or_stdinout(args.timestamp,'wb')
         output_fd = input_fd
     else:
         input_fd = open_file_or_stdinout(args.timestamp,'wb')
         output_fd = sys.stdout
 
+    stampfile = TimestampFile(in_fd=input_fd,out_fd=output_fd)
+
+    json_timestamp = json.load(input_fd)
     print args
+    print json_timestamp
 
 def validate_command(args):
     if args.timestamp is None:
@@ -107,6 +115,14 @@ def validate_command(args):
     input_fd = open_file_or_stdinout(args.input,'rb')
     timestamp_fd = open_file_or_stdinout(args.timestamp,'rb')
     print args
+
+def getsourcecode_command(args):
+    for server_url in args.server:
+        server = jsonrpclib.Server(server_url)
+
+        sourcecode_url = server.get_sourcecode_url()
+        print "%s - %s" % (server_url,sourcecode_url)
+
 
 parser.add_argument("-q","--quiet",action="count",
                              help="Be more quiet.")
@@ -129,6 +145,10 @@ parser_validate = subparsers.add_parser('validate',#aliases=['v'], aliases not s
         help='Validate a timestamp.')
 parser_validate.set_defaults(cmd_func=validate_command)
 
+parser_getsourcecode = subparsers.add_parser('getsourcecode',
+        help='Ask the specified server(s) for where to obtain source code. (AGPL license compliance)')
+parser_getsourcecode.set_defaults(cmd_func=getsourcecode_command)
+
 parser_submit.add_argument("--no-nonce",action="store_true",default=False,
         help="Don't use a nonce in the hash calculation. Note: this means that"\
         " the server knows what data you have submitted.")
@@ -149,6 +169,6 @@ parser_validate.add_argument("timestamp",action="store",nargs='?',
 args = parser.parse_args()
 
 if not args.server:
-    args.server = ['http://localhost:8080']
+    args.server = ['http://localhost:15175']
 
 args.cmd_func(args)

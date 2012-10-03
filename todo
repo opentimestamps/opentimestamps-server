@@ -1,0 +1,16 @@
+ditch subtypes, just use dicts for types?
+
+or we need to add 'typed' type
+
+deserialization
+
+http://softwarefreedom.org/resources/2012/ManagingCopyrightInformation.html
+
+
+github pages
+
+ots-server: AGPL3
+ots-client: GPL3
+ots-lib: LGPL3
+
+split into ots-lib, ots-client, ots-server?

@@ -182,17 +182,38 @@ class Hash(Op):
     def __init__(self,algorithm=u'sha256d',**kwargs):
         self._preinit(**kwargs)
 
-        if algorithm != u'sha256d':
+        if algorithm not in (u'sha256d',u'sha1d',u'sha512d',u'crc32'):
             raise ValueError('Unsupported hash algorithm %s' % algorithm)
         self.algorithm = algorithm
 
         super(Hash,self).__init__(algorithm=algorithm,**kwargs)
 
     def _calc_digest(self):
-        h = hashlib.sha256() 
+        hash_fn = None
+        if self.algorithm == 'crc32':
+            # Quick-n-dirty crc32 implementation
+            class hash_crc32(object):
+                def update(self,newdata):
+                    self.crc = binascii.crc32(newdata,self.crc)
+                def __init__(self,data=''):
+                    self.crc = 0
+                    self.update(data)
+                def digest(self):
+                    import struct
+                    return struct.pack('>L',self.crc)
+            hash_fn = hash_crc32
+        else:
+            hash_fn = getattr(hashlib,self.algorithm[0:-1])
+
+        h = hash_fn() 
         for i in self.inputs:
             h.update(i.digest)
-        return hashlib.sha256(h.digest()).digest()
+
+        # Ugly way of determining if we need to hash things twice.
+        if self.algorithm[-1] == 'd':
+            return hash_fn(h.digest()).digest()
+        else:
+            return h.digest()
 
 # Timestamps are interpreted as microseconds since the epoch, mainly so
 # javascript can represent timestamps exactly with it's 2^53 bits available for
@@ -221,6 +242,11 @@ class Verify(Op):
              'notary_method_version',
              'notary_identity',
              'notary_args')
+
+    # These arguments are used to computer the digest
+    hashed_arguments = ('inputs','timestamp',
+                        'notary_method','notary_method_version',
+                        'notary_identity','notary_args')
 
     def __init__(self,inputs=(),
             timestamp=None,
@@ -260,18 +286,15 @@ class Verify(Op):
         self.notary_method = unicode(notary_method)
         self.notary_method_version = int(notary_method_version)
         self.notary_identity = unicode(notary_identity)
-        self.notary_args = dict(notary_args)
+        self.notary_args = notary_args
 
         super(Verify,self).__init__(inputs,**kwargs)
 
     def _calc_digest(self):
-        # Little switch-a-roo so that we calculate out digest assuming our
-        # digest is empty. FIXME: ugly, not thread safe
-        old_digest = self.digest
-        self.digest = b''
-        calc_digest = serialization.binary_serialize(self)
-        self.digest = old_digest
-        return calc_digest
+        digest_dict = {}
+        for hashed_key in self.hashed_arguments: 
+            digest_dict[hashed_key] = getattr(self,hashed_key)
+        return serialization.DictSerializer.binary_serialize(digest_dict)
 
     def verify(self):
         raise TypeError("Can't verify; unknown notary method %s" % self.notary_method)

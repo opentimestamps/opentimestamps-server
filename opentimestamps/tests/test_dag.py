@@ -90,6 +90,18 @@ class TestDigestOp(unittest.TestCase):
         r(d,b'\x11\x06digest\x05\x02\xff\x00\x06inputs\x07\x08\x00')
 
 class TestHashOp(unittest.TestCase):
+    def test_hash_algorithm_support(self):
+        def t(algo,expected,d=('',)):
+            h = Hash(inputs=d,algorithm=algo)
+            self.assertEquals(h.digest,expected)
+
+        t('sha1d',b'\xbe\x1b\xde\xc0\xaat\xb4\xdc\xb0y\x94>pR\x80\x96\xcc\xa9\x85\xf8')
+        t('sha256d',b']\xf6\xe0\xe2v\x13Y\xd3\n\x82u\x05\x8e)\x9f\xcc\x03\x81SEE\xf5\\\xf4>A\x98?]L\x94V')
+        t('sha512d',b'\x82m\xf0hE}\xf5\xdd\x19[Cz\xb7\xe7s\x9f\xf7]&r\x18?\x02\xbb\x8e\x10\x89\xfa\xbc\xf9{\xd9\xdc\x80\x11\x0c\xf4-\xbc|\xffA\xc7\x8e\xcbh\xd8\xbax\xab\xe6\xb5\x17\x8d\xea9\x84\xdf\x8cUT\x1b\xf9I')
+
+        t('crc32','\x00\x00\x00\x00')
+        t('crc32',':,\xcd\x8d',d=(b"Testing an awful hash algorithm.",))
+
     def test_json_serialization(self):
         r = make_json_round_trip_tester(self)
 

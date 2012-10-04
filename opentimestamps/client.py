@@ -33,6 +33,8 @@ class TimestampFile(object):
     version_minor = 1
     ascii_name_and_version = u"OpenTimestamps JSON Timestamp v%s" % version
 
+    algorithms = ('sha256d',)
+
     dag = None
 
     def __init__(self,in_fd=None,out_fd=None,dag=None):
@@ -45,7 +47,8 @@ class TimestampFile(object):
 
     def create_json_serialized_timestamp(self):
         header = [self.magic_str,
-                  self.ascii_name_and_version]
+                  self.ascii_name_and_version,
+                  self.algorithms]
 
         digests = []
 
@@ -53,7 +56,8 @@ class TimestampFile(object):
 
     def create_binary_serialized_timestamp(self):
         header = [self.magic_bytes,
-                  self.version_major,self.version_minor]
+                  self.version_major,self.version_minor,
+                  self.algorithms]
 
         digests = []
 

@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# Testing 
-#
 # Copyright (C) 2012 Peter Todd <pete@petertodd.org>
 #
 # This file is part of OpenTimestamps.
@@ -17,14 +14,3 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-import unittest
-
-import opentimestamps.tests.serialization
-
-loader = unittest.TestLoader()
-
-suite = loader.loadTestsFromModule(opentimestamps.tests.serialization)
-
-runner = unittest.TextTestRunner(verbosity=2)
-result = runner.run(suite)

@@ -30,34 +30,6 @@ import unicodedata
 import binascii
 import types
 
-"""
-{'Hash.Op': {
-    'inputs.list.bytes':['AA','BB','CC'],
-    'digest.bytes':'AA',
-    'hash_algorithm.str':'sha256d',
-    }
-}
-{'Verify.Op': {
-    'inputs.list.bytes':['AA','BB','CC'],
-    'digest.bytes':'AA',
-    'timestamp.int': 12345,
-    'notary_method.str': 'bitcoin-coinbase',
-    'notary_identity.str': 'mainnet',
-    'bitcoin_block_height.str':12345,
-    'bitcoin_merkle_sides.str':12345,
-    'bitcoin_merkle_leaves.list.bytes':['AA','BB','CC']
-    }
-}
-{'Verify.Op': {
-    'inputs.list.bytes':['AA','BB','CC'],
-    'digest.bytes':'AA',
-    'timestamp.int': 12345,
-    'notary_method.str': 'ext-lookup',
-    'notary_identity.str': 'http://foo.bar.com',
-    }
-}
-"""
-
 class SerializationError(StandardError):
     pass
 

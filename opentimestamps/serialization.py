@@ -76,9 +76,10 @@ typecodes_by_name = {'null'      :b'\x00',
                      'list'      :b'\x07',
                      'list_end'  :b'\x08',
 
-                     'UnknownOp' :b'\x10',
-                     'Hash'      :b'\x11',
-                     'Verify'    :b'\x12',}
+                     'Op'        :b'\x10',
+                     'Digest'    :b'\x11',
+                     'Hash'      :b'\x12',
+                     'Verify'    :b'\x13',}
 
 serializers_by_typecode_byte = {}
 serializers_by_type_name = {}
@@ -553,7 +554,8 @@ class DictSerializer(Serializer):
 
     @classmethod
     def _binary_serialize(cls,obj,fd):
-        for key,value in obj.items():
+        for key in sorted(obj.keys()):
+            value = obj[key]
             cls.__check_key(key)
             key = unicode(key)
             StrSerializer._binary_serialize(key,fd)

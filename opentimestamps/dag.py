@@ -27,34 +27,45 @@ from . import serialization
 # Operations - edges in DAG
 # Digests - vertexes in DAG
 
-class __MasterOpSerializationType(serialization.SerializableType):
+class __MasterOpSerializer(serialization.Serializer):
+    instantiator = None
+
     @classmethod
-    def __create_arguments_dict(cls,value):
+    def __create_arguments_dict(cls,obj):
         r = {}
-        for arg in value.__class__.op_arguments:
-            arg_name,arg_type,arg_subtype = serialization.DictType.parse_keyname(arg)
+        for arg_name in obj.__class__.op_arguments:
             try:
-                r[arg] = getattr(value,arg_name)
+                r[arg_name] = getattr(obj,arg_name)
             except AttributeError:
                 raise AttributeError("Missing attribute '%s' from %r instance" %\
-                        (arg_name,value.__class__))
+                        (arg_name,obj.__class__))
 
         # inputs are handled specially. Rather than serializing the actual Op
         # objects themselves, serialize the object's digests instead.
-        r['inputs.list.bytes'] = tuple(i.digest for i in value.inputs)
+        r['inputs'] = tuple(i.digest for i in obj.inputs)
 
         return r
 
     @classmethod
-    def json_serialize(cls,value,subtype=None):
-        arg_dict = cls.__create_arguments_dict(value)
-        return {value.__class__.op_name:
-                    serialization.DictType.json_serialize(arg_dict)}
+    def json_serialize(cls,obj):
+        arg_dict = cls.__create_arguments_dict(obj)
+        return {obj.__class__.op_name:
+                    serialization.DictSerializer.json_serialize(arg_dict)}
 
     @classmethod
-    def _binary_serialize(cls,value,r,subtype=None):
-        arg_dict = cls.__create_arguments_dict(value)
-        serialization.DictType._binary_serialize(arg_dict,r)
+    def json_deserialize(cls,json_obj):
+        args_dict = serialization.DictSerializer.json_deserialize(json_obj,do_typed_object_hack=False) 
+        return cls.instantiator(**args_dict)
+
+    @classmethod
+    def _binary_serialize(cls,obj,fd):
+        args_dict = cls.__create_arguments_dict(obj)
+        serialization.DictSerializer._binary_serialize(args_dict,fd)
+
+    @classmethod
+    def _binary_deserialize(cls,fd):
+        args_dict = serialization.DictSerializer._binary_deserialize(fd)
+        return cls.instantiator(**args_dict)
 
 def register_Op(cls):
     # We don't support multiple inheritence for ops. If we did the following
@@ -72,40 +83,36 @@ def register_Op(cls):
     if issubclass(cls.__base__,Op):
         all_args.update(cls.__base__.op_arguments)
 
-    # Create a set consisting of all the argument names, not including types,
-    # in the base class so we can check for duplicates later. 
-    arg_names_in_base_class = \
-            set((serialization.DictType.parse_keyname(s)[0] for s in all_args.keys()))
-
-    for arg in cls.op_arguments:
-        arg_name = serialization.DictType.parse_keyname(arg)[0]
-        if arg_name in arg_names_in_base_class:
+    for arg_name in cls.op_arguments:
+        if arg_name in all_args: 
             raise ValueError(\
 "Argument name '%s' defined in %r has the same name as an argument in base class %r" %\
-                    (arg,subclass,cls))
-
-        all_args[arg] = cls
+                    (arg_name,cls,all_args[arg_name]))
+        else:
+            all_args[arg_name] = cls
 
     cls.op_arguments = all_args
 
     # Create a serialization class for the Op class to allow it to be
     # serialized.
-    class new_op_type_class(__MasterOpSerializationType):
+    class new_op_serializer(__MasterOpSerializer):
         type_name = cls.op_name
-        applicable_classes = (cls,)
+        typecode_byte = serialization.typecodes_by_name[type_name]
+        auto_serialized_classes = (cls,)
+        instantiator = cls
 
     # Change the name to something meaningful. Otherwise they'll all have the
-    # name 'new_op_type_class', not very useful for debugging.
-    new_op_type_class.__name__ = '%sType' % cls.op_name
+    # name 'new_op_serializer'; not very useful for debugging.
+    new_op_serializer.__name__ = '%sType' % cls.op_name
 
-    serialization.register_serializable_type(new_op_type_class)
+    serialization.register_serializer(new_op_serializer)
 
     return cls
 
+
 class Op(object):
     op_name = 'Op'
-    op_arguments = ('digest.bytes','inputs.list.bytes',)
-
+    op_arguments = ('digest','inputs',)
 
     def _preinit(self,inputs=(),dag=None,**kwargs):
         if dag is None:
@@ -135,6 +142,17 @@ class Op(object):
         # types now. However we leave that until the object is serialized as
         # right now self.inputs is a list of Digest's, not bytes. 
 
+    def __eq__(self,other):
+        """Equality comparison.
+
+        Equality is defined by what would cause the digest to be different, so
+        just compare the digests directly.
+        """
+        try:
+            return self.digest == other.digest
+        except AttributeError:
+            return False
+
 # Done here to avoid needing a forward declaration
 Op = register_Op(Op)
 
@@ -151,7 +169,7 @@ class Digest(Op):
         elif not isinstance(digest,bytes):
             raise TypeError('digest must be of type bytes')
 
-        if inputs is not ():
+        if len(inputs) > 0:
             raise ValueError("Digest Op's can not have inputs")
 
         super(Digest,self).__init__(digest=digest,dag=dag)
@@ -159,7 +177,7 @@ class Digest(Op):
 @register_Op
 class Hash(Op):
     op_name = 'Hash'
-    op_arguments = ('algorithm.str',)
+    op_arguments = ('algorithm',)
 
     def __init__(self,algorithm=u'sha256d',**kwargs):
         self._preinit(**kwargs)
@@ -198,11 +216,11 @@ valid_notary_method_name_re = re.compile(valid_notary_method_name_regex)
 class Verify(Op):
     op_name = 'Verify'
     op_arguments =\
-            ('timestamp.uint',
-             'notary_method.str',
-             'notary_method_version.uint',
-             'notary_identity.str',
-             'notary_args.dict')
+            ('timestamp',
+             'notary_method',
+             'notary_method_version',
+             'notary_identity',
+             'notary_args')
 
     def __init__(self,inputs=(),
             timestamp=None,
@@ -232,23 +250,23 @@ class Verify(Op):
         elif re.match(valid_notary_method_name_re,notary_method) is None:
             raise ValueError("notary_method must match the regex '%s', got %r" %
                     (valid_notary_method_name_regex,notary_method))
-        
+
         if not isinstance(notary_method_version,int):
             raise TypeError("notary_method_version must be an integer")
         elif notary_method_version < 0:
             raise ValueError("notary_method_version must be >= 0")
 
-        self.timestamp = timestamp
-        self.notary_method = notary_method
-        self.notary_method_version = notary_method_version
-        self.notary_identity = notary_identity
-        self.notary_args = notary_args
+        self.timestamp = int(timestamp)
+        self.notary_method = unicode(notary_method)
+        self.notary_method_version = int(notary_method_version)
+        self.notary_identity = unicode(notary_identity)
+        self.notary_args = dict(notary_args)
 
         super(Verify,self).__init__(inputs,**kwargs)
 
     def _calc_digest(self):
         # Little switch-a-roo so that we calculate out digest assuming our
-        # digest is empty. 
+        # digest is empty. FIXME: ugly, not thread safe
         old_digest = self.digest
         self.digest = b''
         calc_digest = serialization.binary_serialize(self)
@@ -268,7 +286,7 @@ class Dag(object):
             if isinstance(i,bytes):
                 r.append(Digest(digest=i,dag=self))
             elif isinstance(i,Op):
-                pass
+                r.append(i) 
             else:
                 raise TypeError(\
                     "Invalid input digest, expected bytes or Op subclass, got %r" % i.__class__)

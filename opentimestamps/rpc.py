@@ -35,14 +35,14 @@ class RpcInterface(object):
         return self.sourcecode_url 
 
     def submit_digest(self,new_digest):
-        new_digest = json_deserialize(new_digest,'bytes')
+        new_digest = json_deserialize(new_digest)
 
         new_digest = Digest(digest=new_digest,dag=self.dag)
         external_verifier = Verify(inputs=(new_digest,),
                 notary_method = u"ots-server",
                 notary_identity = self.our_url)
 
-        return json_serialize(external_verifier)
+        return json_serialize([new_digest,external_verifier])
 
     def find_paths_to_digests(self,
             start_digests,end_digests):

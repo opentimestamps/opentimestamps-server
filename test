@@ -20,11 +20,9 @@
 
 import unittest
 
-import opentimestamps.tests.serialization
-
 loader = unittest.TestLoader()
 
-suite = loader.loadTestsFromModule(opentimestamps.tests.serialization)
+suite = loader.discover('.')
 
 runner = unittest.TextTestRunner(verbosity=2)
 result = runner.run(suite)

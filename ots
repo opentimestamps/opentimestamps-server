@@ -79,15 +79,16 @@ def submit_command(args):
     for server in args.server:
         server = jsonrpclib.Server(server)
 
-        json_digest = BytesType.json_serialize(hash_op.digest)
+        json_digest = json_serialize(hash_op.digest)
         r = server.submit_digest(json_digest)
+        r = json_deserialize(r)
         responses.append(r)
 
     all_digests = responses
-    all_digests.append(json_serialize(hash_op))
+    all_digests.append(hash_op)
 
-    timestamp_file_obj = ['OpenTimestamps v0.1',{u'hash_algorithm':u'sha256d'},all_digests]
-    json.dump(timestamp_file_obj,timestamp_fd,indent=4)
+    #json.dump(json_serialize(all_digests),timestamp_fd,indent=4)
+    binary_serialize(all_digests,timestamp_fd)
 
 def complete_command(args):
     input_fd = None

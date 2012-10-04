@@ -35,7 +35,7 @@ def make_json_round_trip_tester(self):
     def r(value,expected_representation,new_value=None):
         # serialize to json-compat representation
         actual_representation = json_serialize(value)
-        self.assertEquals(actual_representation,expected_representation)
+        self.assertEqual(actual_representation,expected_representation)
 
         # take that representation and send it through a json parser
         post_json_representation = json.loads(json.dumps(actual_representation))
@@ -44,20 +44,20 @@ def make_json_round_trip_tester(self):
         value2 = json_deserialize(post_json_representation)
         if new_value is not None:
             value = new_value 
-        self.assertEquals(value,value2)
+        self.assertEqual(value,value2)
     return r
 
 def make_binary_round_trip_tester(self):
     def r(value,expected_representation,new_value=None):
         # serialize to binary representation
         actual_representation = binary_serialize(value)
-        self.assertEquals(actual_representation,expected_representation)
+        self.assertEqual(actual_representation,expected_representation)
 
         # deserialize that and check if it's what we expect
         value2 = binary_deserialize(actual_representation)
         if new_value is not None:
             value = new_value 
-        self.assertEquals(value,value2)
+        self.assertEqual(value,value2)
     return r
 
 class TestNoneSerialization(unittest.TestCase):
@@ -92,12 +92,12 @@ class TestUIntSerialization(unittest.TestCase):
             fd.seek(0)
             actual_representation = fd.read()
 
-            self.assertEquals(expected_representation,actual_representation)
+            self.assertEqual(expected_representation,actual_representation)
 
             fd.seek(0)
             value2 = UIntSerializer._binary_deserialize(fd)
 
-            self.assertEquals(value,value2)
+            self.assertEqual(value,value2)
 
         r(0,b'\x00')
         r(1,b'\x01')
@@ -135,12 +135,12 @@ class TestIntSerialization(unittest.TestCase):
             actual_representation = fd.read()
 
             if expected_representation is not None:
-                self.assertEquals(expected_representation,actual_representation)
+                self.assertEqual(expected_representation,actual_representation)
 
             fd.seek(0)
             value2 = IntSerializer._binary_deserialize(fd)
 
-            self.assertEquals(value,value2)
+            self.assertEqual(value,value2)
 
         r(0,b'\x00')
 
@@ -174,10 +174,10 @@ class TestIntSerialization(unittest.TestCase):
     def test_auto_binary_serialization(self):
         def r(value,expected_representation):
             actual_representation = binary_serialize(value)
-            self.assertEquals(actual_representation,expected_representation)
+            self.assertEqual(actual_representation,expected_representation)
 
             value2 = binary_deserialize(actual_representation)
-            self.assertEquals(value,value2)
+            self.assertEqual(value,value2)
 
         r( 0,b'\x02\x00')
         r(-1,b'\x02\x01')
@@ -193,10 +193,10 @@ class TestIntSerialization(unittest.TestCase):
     def test_auto_json_serialization(self):
         def r(value,expected_representation):
             actual_representation = json_serialize(value)
-            self.assertEquals(actual_representation,expected_representation)
+            self.assertEqual(actual_representation,expected_representation)
 
             value2 = json_deserialize(actual_representation)
-            self.assertEquals(value,value2)
+            self.assertEqual(value,value2)
 
         r(0,0)
         r(2**32,2**32)
@@ -259,10 +259,10 @@ class TestTypeObjectSerialization(unittest.TestCase):
     def test_json_serialization(self):
         def r(obj_in,expected_json,expected_out):
             actual_json = TypedObjectSerializer.json_serialize(obj_in)
-            self.assertEquals(expected_json,actual_json)
+            self.assertEqual(expected_json,actual_json)
 
             actual_out = json_deserialize(actual_json)
-            self.assertEquals(expected_out,actual_out)
+            self.assertEqual(expected_out,actual_out)
    
         r({},{u'dict':{}},{})
         r(1,{u'int':1},1)

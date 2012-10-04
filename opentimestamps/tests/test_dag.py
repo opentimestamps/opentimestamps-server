@@ -98,7 +98,7 @@ class TestHashOp(unittest.TestCase):
         h1 = Hash(inputs=(a,b))
         r(h1,{'Hash':
                 {'inputs':[u'#61', u'#62'],
-                 'algorithm':u'$sha256d',
+                 'algorithm':u'sha256d',
                  'digest':u'#a1ff8f1856b5e24e32e3882edd4a021f48f28a8b21854b77fdef25a97601aace'}})
 
     def test_binary_serialization(self):

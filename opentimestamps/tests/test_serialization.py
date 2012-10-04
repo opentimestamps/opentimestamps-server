@@ -231,11 +231,20 @@ class TestStrSerialization(unittest.TestCase):
     def test_json_serialization(self):
         r = make_json_round_trip_tester(self)
 
-        r(u'',u'$')
-        r(u'foo',u'$foo')
+        r(u'',u'')
+        r(u'foo',u'foo')
+
+        # Escape #'s at the start of a string.
+        r(u'#',u'\\#')
+        r(u'###',u'\\###')
+        r(u'# 2324',u'\\# 2324')
+
+        # Also, \'s at the start of a string need to be escaped as well.
+        r(u'\\',u'\\\\')
+        r(u'\\# 2324',u'\\\\# 2324')
 
         # NFC normalization example: <A + grave> is transformed into À 
-        r(u'\u0041\u0300',u'$\u00c0',u'\u00c0')
+        r(u'\u0041\u0300',u'\u00c0',u'\u00c0')
 
     def test_binary_serialization(self):
         r = make_binary_round_trip_tester(self)
@@ -266,7 +275,7 @@ class TestTypeObjectSerialization(unittest.TestCase):
    
         r({},{u'dict':{}},{})
         r(1,{u'int':1},1)
-        r(u'foo',{u'str':u'$foo'},u'foo')
+        r(u'foo',{u'str':u'foo'},u'foo')
         r([1,2,b'\xff'],{u'list':[1,2,'#ff']},[1,2,b'\xff'])
 
 class TestDictSerialization(unittest.TestCase):
@@ -276,9 +285,9 @@ class TestDictSerialization(unittest.TestCase):
         r({},{})
 
         # Note the str and unicode key's
-        r({'a':u'b',u'c':1},{u'a':u'$b',u'c':1})
-        r({'a':u'b',u'c':{}},{u'a':u'$b',u'c':{}})
-        r({'a':u'b',u'c':{'a':5,'b':b'\xff'}},{u'a':u'$b',u'c':{u'a':5,u'b':u'#ff'}})
+        r({'a':u'b',u'c':1},{u'a':u'b',u'c':1})
+        r({'a':u'b',u'c':{}},{u'a':u'b',u'c':{}})
+        r({'a':u'b',u'c':{'a':5,'b':b'\xff'}},{u'a':u'b',u'c':{u'a':5,u'b':u'#ff'}})
 
         # non-str keys should fail
         with self.assertRaises(SerializationError):
@@ -319,7 +328,7 @@ class TestListSerialization(unittest.TestCase):
 
         r([None,False,True,1,2,3],[None,False,True,1,2,3])
         r([b'\xff'],[u'#ff'])
-        r([b'\xff',[[[False,u'hi there']]]],[u'#ff',[[[False,u'$hi there']]]])
+        r([b'\xff',[[[False,u'hi there']]]],[u'#ff',[[[False,u'hi there']]]])
 
         # Generators should work
         nones_list = [None for i in range(0,128)]

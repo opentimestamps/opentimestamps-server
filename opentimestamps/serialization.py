@@ -412,18 +412,23 @@ class StrSerializer(Serializer):
     def json_serialize(cls,obj):
         obj = cls.__utf8_normalize(obj)
 
-        return u'$' + obj
+        if len(obj) > 0:
+            if obj[0] == '#':
+                obj = u'\\' + obj
+            elif obj[0] == '\\':
+                obj = u'\\' + obj
+        return obj
 
     @classmethod
     def json_deserialize(cls,json_obj):
-        if json_obj[0] == '$':
-            return json_obj[1:]
-        elif json_obj[0] == '#':
+        if len(json_obj) > 0 and json_obj[0] == u'#':
             # This is actually bytes, let the bytes serializer handle it.
             return BytesSerializer.json_deserialize(json_obj)
+        elif len(json_obj) > 0 and json_obj[0] == u'\\':
+            # Something got escaped.
+            return json_obj[1:]
         else:
-            raise SerializationError("Unknown string format character '%s', expected '$' or '#'" % \
-                    json_obj[0])
+            return json_obj
 
     @classmethod
     def _binary_serialize(cls,obj,fd):

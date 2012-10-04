@@ -87,8 +87,8 @@ def submit_command(args):
     all_digests = responses
     all_digests.append(hash_op)
 
-    #json.dump(json_serialize(all_digests),timestamp_fd,indent=4)
-    binary_serialize(all_digests,timestamp_fd)
+    json.dump(json_serialize(all_digests),timestamp_fd,indent=4)
+    #binary_serialize(all_digests,timestamp_fd)
 
 def complete_command(args):
     input_fd = None

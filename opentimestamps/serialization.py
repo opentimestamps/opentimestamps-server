@@ -81,7 +81,7 @@ typecodes_by_name = {'null'      :b'\x00',
                      'Verify'    :b'\x12',}
 
 serializers_by_typecode_byte = {}
-serializers_by_typecode_name = {}
+serializers_by_type_name = {}
 
 auto_serializers_by_class = {}
 auto_json_deserializers_by_class = {}
@@ -98,7 +98,7 @@ def register_serializer(cls):
         auto_json_deserializers_by_class[auto_json_cls] = cls
 
     serializers_by_typecode_byte[cls.typecode_byte] = cls
-    serializers_by_typecode_name[cls.typecode_name] = cls
+    serializers_by_type_name[cls.type_name] = cls
 
     return cls
 
@@ -110,7 +110,7 @@ class Serializer(object):
     implement your own serialization scheme.
     """
 
-    typecode_name = 'invalid'
+    type_name = 'invalid'
     typecode_byte = b''
 
     # The list of classes that are automatically serialized using this
@@ -285,8 +285,8 @@ def binary_deserialize(fd):
 
 @register_serializer
 class NullSerializer(Serializer):
-    typecode_name = 'null'
-    typecode_byte = typecodes_by_name[typecode_name]
+    type_name = 'null'
+    typecode_byte = typecodes_by_name[type_name]
     auto_serialized_classes = (types.NoneType,)
     auto_json_deserialized_classes = (types.NoneType,)
 
@@ -302,8 +302,8 @@ class NullSerializer(Serializer):
 
 @register_serializer
 class BoolSerializer(Serializer):
-    typecode_name = 'bool'
-    typecode_byte = typecodes_by_name[typecode_name]
+    type_name = 'bool'
+    typecode_byte = typecodes_by_name[type_name]
     auto_serialized_classes = (bool,)
     auto_json_deserialized_classes = (bool,)
 
@@ -335,8 +335,8 @@ class UIntSerializer(Serializer):
     serializers have a convenient way of serializing unsigned ints for internal
     use.
     """
-    typecode_name = 'uint'
-    typecode_byte = typecodes_by_name[typecode_name]
+    type_name = 'uint'
+    typecode_byte = typecodes_by_name[type_name]
 
     @classmethod
     def _binary_serialize(cls,obj,fd):
@@ -366,8 +366,8 @@ class IntSerializer(Serializer):
     Uses the same varint+zigzag encoding as in Google Protocol Buffers for the
     binary format. No encoding required in the JSON version.
     """
-    typecode_name = 'int'
-    typecode_byte = typecodes_by_name[typecode_name]
+    type_name = 'int'
+    typecode_byte = typecodes_by_name[type_name]
     auto_serialized_classes = (int,long)
     auto_json_deserialized_classes = (int,long)
 
@@ -392,8 +392,8 @@ class IntSerializer(Serializer):
 
 @register_serializer
 class BytesSerializer(Serializer):
-    typecode_name = 'bytes'
-    typecode_byte = typecodes_by_name[typecode_name]
+    type_name = 'bytes'
+    typecode_byte = typecodes_by_name[type_name]
     auto_serialized_classes = (bytes,str)
     auto_json_deserialized_classes = ()
 
@@ -418,8 +418,8 @@ class BytesSerializer(Serializer):
 
 @register_serializer
 class StrSerializer(Serializer):
-    typecode_name = 'str'
-    typecode_byte = typecodes_by_name[typecode_name]
+    type_name = 'str'
+    typecode_byte = typecodes_by_name[type_name]
     auto_serialized_classes = (unicode,)
     auto_json_deserialized_classes = (unicode,)
 
@@ -476,7 +476,7 @@ class TypedObjectSerializer(Serializer):
     and the dict serialization code recognizes that special form and calls us.
     Not relevant for the binary serialization, as that has types already.
     """
-    typecode_name = 'invalid'
+    type_name = 'invalid'
     typecode_byte = b'\xff'
     auto_serialized_classes = ()
     auto_json_deserialized_classes = ()
@@ -487,7 +487,7 @@ class TypedObjectSerializer(Serializer):
         assert len(keys) == 1
         type_name = keys[0]
 
-        serializer_cls = serializers_by_typecode_name[type_name]
+        serializer_cls = serializers_by_type_name[type_name]
 
         if serializer_cls is DictSerializer:
             # Don't apply the hack recursively.
@@ -498,7 +498,7 @@ class TypedObjectSerializer(Serializer):
     @classmethod
     def json_serialize(cls,obj):
         (serializer_cls,obj) = get_serializer_for_obj(obj)
-        return {serializer_cls.typecode_name:json_serialize(obj)}
+        return {serializer_cls.type_name:json_serialize(obj)}
 
     # Makes no sense to use these as TypedObjectSerializer doesn't have a valid
     # typecode_byte.
@@ -512,8 +512,8 @@ class TypedObjectSerializer(Serializer):
 
 @register_serializer
 class DictSerializer(Serializer):
-    typecode_name = 'dict'
-    typecode_byte = typecodes_by_name[typecode_name]
+    type_name = 'dict'
+    typecode_byte = typecodes_by_name[type_name]
     auto_serialized_classes = (dict,)
     auto_json_deserialized_classes = (dict,)
 
@@ -584,8 +584,8 @@ _list_end_marker = _ListEndMarker()
 
 @register_serializer
 class _ListEndMarkerSerializer(Serializer):
-    typecode_name = 'list_end'
-    typecode_byte = typecodes_by_name[typecode_name]
+    type_name = 'list_end'
+    typecode_byte = typecodes_by_name[type_name]
     auto_serialized_classes = (_ListEndMarker,)
     auto_json_deserialized_classes = ()
 
@@ -607,8 +607,8 @@ class _ListEndMarkerSerializer(Serializer):
 
 @register_serializer
 class ListSerializer(Serializer):
-    typecode_name = 'list'
-    typecode_byte = typecodes_by_name[typecode_name]
+    type_name = 'list'
+    typecode_byte = typecodes_by_name[type_name]
     auto_serialized_classes = (list,tuple,types.GeneratorType)
     auto_json_deserialized_classes = (list,tuple)
 

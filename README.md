@@ -1,4 +1,4 @@
-opentimestamps-server
+OpenTimestamps Server
 =====================
 
-OpenTimestamps server component
+Open-source distributed timestamping.

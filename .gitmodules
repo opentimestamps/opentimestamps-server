@@ -1,3 +1,6 @@
 [submodule "client"]
 	path = client
 	url = ../opentimestamps-client.git
+[submodule "external/jsonrpclib"]
+	path = external/jsonrpclib
+	url = https://github.com/joshmarshall/jsonrpclib

@@ -1,0 +1,67 @@
+#!/usr/bin/python
+# Copyright (C) 2012 Peter Todd <pete@petertodd.org>
+#
+# This file is part of the OpenTimestamps Server.
+#
+# It is subject to the license terms in the LICENSE file found in the top-level
+# directory of this distribution and at http://opentimestamps.org
+#
+# No part of the OpenTimestamps Server, including this file, may be copied,
+# modified, propagated, or distributed except according to the terms contained
+# in the LICENSE file.
+
+import sys
+import logging
+if sys.version_info[1] < 7:
+    sys.exit("OpenTimestamps requires Python version 2.7.0 or newer. "\
+             "(you have %d.%d.%d)"%sys.version_info[0:3])
+
+
+import argparse
+
+parser = argparse.ArgumentParser(description="OpenTimestamps server.")
+
+parser.add_argument("-q","--quiet",action="count",
+                             help="Be more quiet.")
+parser.add_argument("-v","--verbose",action="count",
+                             help="Be more verbose. Both -v and -q may be used multiple times.")
+parser.add_argument("-c","--config",action="store",default="~/.opentimestamps/config",
+        help="Location of config file. Defaults to: ~/.opentimestamps/config")
+parser.add_argument("--bind",action="store",default="::",
+                             help="Bind to a specific address")
+parser.add_argument("-p","--port",action="store",default=2302,type=int,
+                             help="Port, defaults to 2302")
+parser.add_argument("--log",action="store",default='WARNING',
+                             help="Set log level")
+
+args = parser.parse_args()
+
+logging.root.setLevel(args.log)
+
+
+import socket
+from jsonrpclib.SimpleJSONRPCServer import SimpleJSONRPCServer
+
+
+# This should bind to the most reasonable address for the specified name. If
+# IPv6 is found to, this will also bind to IPv4 at the same time.
+server = None
+for res in socket.getaddrinfo(args.bind, args.port, socket.AF_UNSPEC,
+                              socket.SOCK_STREAM, 0, socket.AI_PASSIVE):
+    af, socktype, proto, canonname, sa = res
+    try:
+        server = SimpleJSONRPCServer((args.bind,args.port),address_family=af)
+    except socket.error, msg:
+        server = None
+        continue
+if server is None:
+    logging.critical("Couldn't bind to address: %s",msg)
+    sys.exit(1)
+
+from otsserver.rpc import RpcInterface,JsonWrapper
+
+rpc_interface = RpcInterface()
+json_wrapped_rpc_interface = JsonWrapper(rpc_interface)
+server.register_instance(json_wrapped_rpc_interface)
+
+server.serve_forever()

@@ -29,12 +29,12 @@ class TestLinearCalendar(unittest.TestCase):
 
         h1 = cal.submit((d1,))[0]
         self.assertIn(h1,dag)
-        self.assertIn(h1,oldest_digest.dependents)
+        self.assertIn(h1,dag.dependents[oldest_digest])
 
         h2 = cal.submit((d2,))[0]
         self.assertIn(h2,dag)
-        self.assertIn(h2,h1.dependents)
+        self.assertIn(h2,dag.dependents[h1])
 
         h3 = cal.submit((d3,))[0]
         self.assertIn(h3,dag)
-        self.assertIn(h3,h2.dependents)
+        self.assertIn(h3,dag.dependents[h2])

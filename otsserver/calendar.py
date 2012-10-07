@@ -43,7 +43,7 @@ class LinearCalendar(Calendar):
         self.algorithm = algorithm
         self.dag = dag
 
-        self.most_recent_digest = Digest(digest='',dag=self.dag)
+        self.most_recent_digest = self.dag.add(Digest(digest=''))
 
     def submit(self,digests):
         r = []
@@ -51,7 +51,7 @@ class LinearCalendar(Calendar):
             if digest in self.dag:
                 r.append(self.dag[digest])
             else:
-                h = Hash(inputs=(self.most_recent_digest,digest),dag=self.dag)
+                h = self.dag.add(Hash(inputs=(self.most_recent_digest,digest)))
                 r.append(h)
                 self.most_recent_digest = h
         return r

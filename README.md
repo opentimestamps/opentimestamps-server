@@ -34,6 +34,8 @@ Verify it:
 Hacking
 -------
 
+Tested with Python 2.7
+
 This repository uses sub-modules for the opentimestamps-client and jsonrpclib:
 
     git submodule update --init

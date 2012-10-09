@@ -98,6 +98,9 @@ class MultiNotaryCalendar(Calendar):
         self.all_submitted_ops = []
         self.known_notaries = {}
 
+        # start with at least one digest
+        self.all_submitted_ops.append(Digest('Hello World!'))
+
     def get_merkle_child(self,notary):
         if not notary.canonicalized():
             raise CalendarError("get_merkle_child() expects a notary specification in canonical form")

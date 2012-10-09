@@ -148,7 +148,11 @@ class MultiNotaryCalendar(Calendar):
         notary_entry.pending_signatures.pop(digest)
 
         # The verification itself needs to become part of the digests verified.
+        # But rather than just do that, also include the input for that
+        # verification, so that in the future it can be by-passed if it turns
+        # out to be useless.
         self.submit(verify_op)
+        self.submit(verify_op.inputs[0])
 
 
     def submit(self,op):

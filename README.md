@@ -20,8 +20,9 @@ Sign the digests on the server with GPG:
 
     ./client/ots sign <fingerprint>
 
-where fingerprint is the *fingerprint* in quotes of a key that you can sign
-with.
+where fingerprint is the fingerprint of a key that you can sign with. If you
+copy and paste a fingerprint from GPG it will have spaces; make sure it is in
+quotes or remove the spaces.
 
 Now complete the timestamp:
 

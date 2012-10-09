@@ -157,4 +157,4 @@ class MultiNotaryCalendar(Calendar):
 
     def submit(self,op):
         self.all_submitted_ops.append(op)
-        return None
+        return ()

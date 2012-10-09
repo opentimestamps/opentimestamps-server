@@ -27,6 +27,8 @@ parser.add_argument("-v","--verbose",action="count",
                              help="Be more verbose. Both -v and -q may be used multiple times.")
 parser.add_argument("-c","--config",action="store",default="~/.opentimestamps/config",
         help="Location of config file. Defaults to: ~/.opentimestamps/config")
+parser.add_argument("-d","--data",action="store",default="~/.otsserver/",
+        help="Location to store data in.")
 parser.add_argument("--bind",action="store",default="::",
                              help="Bind to a specific address")
 parser.add_argument("-p","--port",action="store",default=2302,type=int,
@@ -60,7 +62,7 @@ if server is None:
 
 from otsserver.rpc import RpcInterface,JsonWrapper
 
-rpc_interface = RpcInterface()
+rpc_interface = RpcInterface(args.data)
 json_wrapped_rpc_interface = JsonWrapper(rpc_interface)
 server.register_instance(json_wrapped_rpc_interface)
 

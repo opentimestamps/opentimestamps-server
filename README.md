@@ -3,6 +3,32 @@ OpenTimestamps Server
 
 Open-source distributed timestamping.
 
+Example Usage
+-------------
+
+Start an otsd server first:
+
+    ./otsd
+
+Now submit a timestamp to the server:
+
+    ./client/ots submit README.md
+
+This creates a README.md.ots file.
+
+Sign the digests on the server with GPG:
+
+    ./client/ots sign <fingerprint>
+
+where fingerprint is the *fingerprint* of a key that you can sign with.
+
+Now complete the timestamp:
+
+    ./client/ots complete <fingerprint> README.md.ots
+
+Verify it:
+
+    ./client/ots verify README.md
 
 Hacking
 -------

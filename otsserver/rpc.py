@@ -11,11 +11,13 @@
 
 import logging
 
+from opentimestamps import implementation_identifier as client_implementation_id
 from opentimestamps.dag import *
 from opentimestamps.serialization import *
 from opentimestamps.notary import *
 
 from .calendar import MultiNotaryCalendar
+from . import implementation_identifier as server_implementation_id
 
 # TODO: exceptions class.
 #
@@ -27,10 +29,10 @@ class RpcInterface(object):
     Serialization/deserialization is not done here.
     """
 
-    rpc_major_version = 1
-    rpc_minor_version = 0
+    _rpc_major_version = 1
+    _rpc_minor_version = 0
 
-    sourcecode_url = u'https://github.com/petertodd/opentimestamps-server.git'
+    _sourcecode_url = u'https://github.com/petertodd/opentimestamps-server.git'
 
     def __init__(self,data_dir):
         dag = Dag()
@@ -38,14 +40,29 @@ class RpcInterface(object):
 
 
     def version(self):
-        return (self.rpc_major_version,
-                self.rpc_minor_version)
+        """Return version information"""
+        return {'rpc_major':self._rpc_major_version,
+                'rpc_minor':self._rpc_minor_version,
+                'server_version':server_implementation_id,
+                'client_version':client_implementation_id}
 
     def sourcecode(self):
-        return self.sourcecode_url
+        """Return the url to get sourcecode"""
+        return self._sourcecode_url
 
-    def help(self):
-        return self.__class__.__dict__
+    def help(self,*commands):
+        """Get help"""
+        if not len(commands):
+            commands = self.__class__.__dict__.keys()
+
+        r = []
+        for cmd in commands:
+            if not cmd.startswith('_'):
+                doctext = self.__class__.__dict__[cmd].__doc__
+                if doctext is None:
+                    doctext = ''
+                r.append((unicode(cmd),unicode(doctext)))
+        return r
 
     def get_merkle_child(self,notary):
         if not isinstance(notary,Notary):
@@ -64,6 +81,7 @@ class RpcInterface(object):
 
     def path(self,source,dest):
         return self.calendar.dag.path(source,dest)
+
 
 class JsonWrapper(object):
     """JSON serialization wrapper"""

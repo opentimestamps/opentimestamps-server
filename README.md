@@ -34,7 +34,7 @@ Verify it:
 Hacking
 -------
 
-Tested with Python 2.7
+Tested with Python 2.7, python-pyme 1:0.8.1-2build1
 
 This repository uses sub-modules for the opentimestamps-client and jsonrpclib:
 

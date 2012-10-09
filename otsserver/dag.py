@@ -12,8 +12,8 @@
 from opentimestamps.dag import *
 from opentimestamps.serialization import *
 
-class PersistentDag(MemoryDag):
-    """DAG backed by persistent storage
+class PersistentDag(Dag):
+    """Dag backed by persistent storage
 
     """
     pass

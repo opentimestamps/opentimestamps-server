@@ -166,39 +166,7 @@ _version-n:<notary spec> Won't need this stuff for awhile though.
 
 ### Calendars: how they actually work 
 
-Rather than create one continuous chain, we effectively create multiple chains,
-one for each notary identity creating timestamps. Now we have the following:
-
-
-* pool - Linked-list of new digests that haven't been timestamped.
-
-* notary[notary_spec] - dict of every notary that has signed a timestamp in
-                        this calendar. The value for each notary is the last
-                        timestamp created by the notary, and a pointer to what
-                        was the head of the pool when that timestamp was
-                        created.
-
-Now the algorithm to create a new timestamp is just:
-
-1. Find every digest from our start of the pool list to the end.
-
-2. Create a merkle tree.
-
-3. Sign the child digest.
-
-4. Reset our pool start to the end of the list.
-
-Every digest is guaranteed to have the shortest possible path to the next
-timestamp created by that notary. In addition, subsequent timestamps, by
-different notaries, will wind up creating substantially similar merkle trees,
-reusing most of the operations that create them.
-
-If the pool gets too large it can be compressed, by making merkle trees out of
-items in it, and storing the child digest instead.
-
-To timestamp the timestamps a second, 'optional' pool can be created, whose
-elements are also timestamped, but the existance of those elements doesn't
-trigger a timestamp to be created.
+see MerkleDag, tips of tips
 
 
 ### Scalability: a good problem to have

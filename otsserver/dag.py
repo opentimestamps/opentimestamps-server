@@ -127,6 +127,30 @@ class MerkleDag(object):
     client knows the index of their digest, searching for signatures just
     becomes a fast binary search in a per-method list of signatures, sorted by
     tips length. Fast!
+
+    This is also good for efficiently mirroring calendars from one server to
+    another. Lets suppose you know the set of top tips for the calendar you'd
+    like to mirror, and want to know if you can get that calendar from another
+    server. Simply ask the server for the highest tip, if they have it, great!
+    Ask them for the next tallest tip and so forth. Now lets say they don't
+    have one of the tips you want. Ask them for the the older parent of the tip
+    they don't have. If they have it, great! Otherwise, ask them for the next
+    older parent. Essentially each unsuccessful request splits the search space
+    in half - binary search for merkle forests.
+
+    If the server's calendar is now divergent compared to yours you'll still
+    get the part before the divergency happened.
+
+    Merging divergent calendars together again is possible as well. Essentially
+    the divergent tips needed to be added back with a rule ordering the adds by
+    height and digest value; highest sub-trees first, then lowest valued
+    digests first. Getting tips for recreating the trees signatures were signed
+    over is then a matter of keeping sorted lists of subtrees by height, so you
+    can efficiently grab the tips required. Kinda complex; this can be
+    implemented later. The important thing is that searches are still fairly
+    efficient, because we can still efficiently store what signatures were
+    applied to what digests based on the largest tip of a tree that they were
+    applied too.
     """
     def __init__(self,datadir,algorithm='sha256',create=False):
         if create:

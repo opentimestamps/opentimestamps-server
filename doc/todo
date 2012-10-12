@@ -47,3 +47,10 @@ directly accept digests, need to at least hash with some random text?
 We can always null it out for our purposes, but the real issue is that we'll
 wind up giving other client the digests that totally different clients
 submitted.
+
+
+* File formats
+
+Record each digest a timestamp applies to in the timestamp file itself. Unit test.
+
+See ascii-armor.txt

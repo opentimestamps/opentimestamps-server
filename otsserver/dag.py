@@ -102,56 +102,7 @@ class _MerkleTipsStore(BinaryHeader):
 class MerkleDag(object):
     """Dag for building merkle trees
 
-    Essentially we keep multiple trees stored with the standard linear
-    breadth-first method, with the largest tree starting at index 0. This array
-    is called 'tips', and has the interesting property that any member of that
-    array is the tip of a tree, although usually not a very tall tree.
-
-    Every time a digest is added to the end of the tips we see if that digest
-    allows us to create a larger tree. Lets define the height of the tree, h,
-    as representing a tree with 2^h total roots. Thus as we add digests, the
-    heights of the array grows as follows:
-
-    0
-    00
-    001 <- indexed 0 and 1 are hashed to form index 3
-    0010
-    0010012 <- another tree, which lead to the two subtrees being merged (height 2)
-    00100120
-    0010012001 <- now we have two trees, one of height 2, one of height 1
-
-    Now when we sign the tree, we just take the tips of every subtree, hash
-    them together in a merkle tree, and sign that. That hash can be
-    deterministicly calculated just by knowing the length of the tips array
-    when the signature was created. Similarly because every signature is
-    applied to every digest submitted before the signature was created, if the
-    client knows the index of their digest, searching for signatures just
-    becomes a fast binary search in a per-method list of signatures, sorted by
-    tips length. Fast!
-
-    This is also good for efficiently mirroring calendars from one server to
-    another. Lets suppose you know the set of top tips for the calendar you'd
-    like to mirror, and want to know if you can get that calendar from another
-    server. Simply ask the server for the highest tip, if they have it, great!
-    Ask them for the next tallest tip and so forth. Now lets say they don't
-    have one of the tips you want. Ask them for the the older parent of the tip
-    they don't have. If they have it, great! Otherwise, ask them for the next
-    older parent. Essentially each unsuccessful request splits the search space
-    in half - binary search for merkle forests.
-
-    If the server's calendar is now divergent compared to yours you'll still
-    get the part before the divergency happened.
-
-    Merging divergent calendars together again is possible as well. Essentially
-    the divergent tips needed to be added back with a rule ordering the adds by
-    height and digest value; highest sub-trees first, then lowest valued
-    digests first. Getting tips for recreating the trees signatures were signed
-    over is then a matter of keeping sorted lists of subtrees by height, so you
-    can efficiently grab the tips required. Kinda complex; this can be
-    implemented later. The important thing is that searches are still fairly
-    efficient, because we can still efficiently store what signatures were
-    applied to what digests based on the largest tip of a tree that they were
-    applied too.
+    See docs/dag-design.txt
     """
     def __init__(self,datadir,algorithm='sha256',create=False):
         if create:

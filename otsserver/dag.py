@@ -20,7 +20,7 @@ from opentimestamps.serialization import *
 
 class _MerkleTipsStore(BinaryHeader):
     header_magic_uuid = uuid.UUID('00c5f8f8-1355-11e2-afce-6f3bd8706b74')
-    header_magic_text = 'OpenTimestamps  MerkleTipsStore'
+    header_magic_text = b'OpenTimestamps  MerkleTipsStore'
 
     major_version = 0
     minor_version = 0
@@ -39,14 +39,14 @@ class _MerkleTipsStore(BinaryHeader):
             # the user's fat fingers...
             try:
                 open(filename,'r')
-                raise StandardError('Can not create; file %s already exists' % filename)
+                raise Exception('Can not create; file %s already exists' % filename)
             except IOError:
                 with open(filename,'wb') as fd:
                     self._fd = fd
                     if tips_uuid is None:
                         tips_uuid = uuid.uuid4() # Random bytes method
                     self.tips_uuid_bytes = tips_uuid.bytes
-                    self.algorithm = algorithm
+                    self.algorithm = bytes(algorithm,'utf8')
                     self._write_header(self._fd)
 
 
@@ -55,11 +55,11 @@ class _MerkleTipsStore(BinaryHeader):
         self.tips_uuid = uuid.UUID(bytes=self.tips_uuid_bytes)
 
         # FIXME: multi-algo support
-        assert self.algorithm == 'sha256'
+        assert self.algorithm == b'sha256'
         self.width = 32
 
         if tips_uuid is not None and self.tips_uuid != tips_uuid:
-            raise StandardError(
+            raise Exception(
                     'Expected to find UUID %s in MerkleDag tips store, but got %s' %
                     (tips_uuid,self.tips_uuid))
 
@@ -82,11 +82,12 @@ class _MerkleTipsStore(BinaryHeader):
 
     def __len__(self):
         self._fd.seek(0,2)
-        return (self._fd.tell() - self.header_length) / self.width
+        # FIXME: check that rounding works when junk bytes have been added
+        return (self._fd.tell() - self.header_length) // self.width
 
     def append(self,digest,sync=False):
-        if not (isinstance(digest,bytes) or isinstance(digest,buffer)):
-            raise TypeError('digest must be either bytes or buffer, not %s' % type(digest))
+        if not isinstance(digest,bytes):
+            raise TypeError('digest must be bytes, not %s' % type(digest))
         if len(digest) != self.width:
             raise ValueError('digest must be an exact multiple of the tips store width.')
 

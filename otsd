@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # Copyright (C) 2012 Peter Todd <pete@petertodd.org>
 #
 # This file is part of the OpenTimestamps Server.
@@ -12,9 +12,6 @@
 
 import sys
 import logging
-if sys.version_info[1] < 7:
-    sys.exit("OpenTimestamps requires Python version 2.7.0 or newer. "\
-             "(you have %d.%d.%d)"%sys.version_info[0:3])
 
 
 import argparse
@@ -53,7 +50,7 @@ for res in socket.getaddrinfo(args.bind, args.port, socket.AF_UNSPEC,
     af, socktype, proto, canonname, sa = res
     try:
         server = SimpleJSONRPCServer((args.bind,args.port),address_family=af)
-    except socket.error, msg:
+    except socket.error as msg:
         server = None
         continue
 if server is None:

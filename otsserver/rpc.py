@@ -32,7 +32,7 @@ class RpcInterface(object):
     _rpc_major_version = 1
     _rpc_minor_version = 0
 
-    _sourcecode_url = u'https://github.com/petertodd/opentimestamps-server.git'
+    _sourcecode_url = 'https://github.com/petertodd/opentimestamps-server.git'
 
     def __init__(self,data_dir):
         dag = Dag()
@@ -53,7 +53,7 @@ class RpcInterface(object):
     def help(self,*commands):
         """Get help"""
         if not len(commands):
-            commands = self.__class__.__dict__.keys()
+            commands = list(self.__class__.__dict__.keys())
 
         r = []
         for cmd in commands:
@@ -61,22 +61,22 @@ class RpcInterface(object):
                 doctext = self.__class__.__dict__[cmd].__doc__
                 if doctext is None:
                     doctext = ''
-                r.append((unicode(cmd),unicode(doctext)))
+                r.append((str(cmd),str(doctext)))
         return r
 
     def get_merkle_child(self,notary):
         if not isinstance(notary,Notary):
-            raise StandardError('expected Notary, not %r' % notary.__class__)
+            raise Exception('expected Notary, not %r' % notary.__class__)
         return self.calendar.get_merkle_child(notary)
 
     def add_verification(self,verify_op):
         if not isinstance(verify_op,Op):
-            raise StandardError('expected Op, not %r' % verify_op.__class__)
+            raise Exception('expected Op, not %r' % verify_op.__class__)
         return self.calendar.add_verification(verify_op)
 
     def submit(self,op):
         if not isinstance(op,Op):
-            raise StandardError('expected Op, not %r' % op.__class__)
+            raise Exception('expected Op, not %r' % op.__class__)
         return self.calendar.submit(op)
 
     def path(self,source,dest):

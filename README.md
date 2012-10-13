@@ -35,7 +35,7 @@ Verify it:
 Hacking
 -------
 
-Tested with Python 2.7, python-pyme 1:0.8.1-2build1
+Tested with Python 3.2.3, python3-gnupg
 
 This repository uses sub-modules for the opentimestamps-client and jsonrpclib:
 
@@ -49,4 +49,4 @@ library 'opentimestamps.server', so it's called 'otsserver' instead.
 Unit tests
 ----------
 
-python -m unittest discover
+python3 -m unittest discover

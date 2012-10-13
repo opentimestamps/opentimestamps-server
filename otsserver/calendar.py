@@ -13,7 +13,7 @@ import time
 
 from opentimestamps.dag import *
 
-class CalendarError(StandardError):
+class CalendarError(Exception):
     pass
 
 
@@ -49,7 +49,7 @@ class LinearCalendar(Calendar):
         self.algorithm = algorithm
         self.dag = dag
 
-        self.most_recent_digest = self.dag.add(Digest(digest=''))
+        self.most_recent_digest = self.dag.add(Digest(digest=b''))
 
     def submit(self,digests):
         r = []
@@ -99,7 +99,7 @@ class MultiNotaryCalendar(Calendar):
         self.known_notaries = {}
 
         # start with at least one digest
-        self.all_submitted_ops.append(Digest('Hello World!'))
+        self.all_submitted_ops.append(Digest(b'Hello World!'))
 
     def get_merkle_child(self,notary):
         if not notary.canonicalized():

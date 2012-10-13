@@ -21,9 +21,9 @@ class TestLinearCalendar(unittest.TestCase):
         dag = Dag()
         cal = LinearCalendar(dag=dag)
 
-        d1 = Digest('1')
-        d2 = Digest('2')
-        d3 = Digest('3')
+        d1 = Digest(b'1')
+        d2 = Digest(b'2')
+        d3 = Digest(b'3')
 
         oldest_digest = cal.most_recent_digest
 
@@ -53,7 +53,7 @@ class TestMultiNotaryCalendar(unittest.TestCase):
         def add_digests(n,accumulator=[0]):
             for i in range(0,n):
                 accumulator[0] += 1
-                h = Hash(inputs=(bytes(str(accumulator[0])),))
+                h = Hash(inputs=(bytes(str(accumulator[0]),'utf8'),))
                 digests.append(h)
                 cal.submit(h)
 

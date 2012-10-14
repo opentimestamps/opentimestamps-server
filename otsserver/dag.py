@@ -38,7 +38,7 @@ class _MerkleTipsStore(BinaryHeader):
             # os.open(O_CREAT), but that's not as portable and our attacker is
             # the user's fat fingers...
             try:
-                open(filename,'r')
+                open(filename,'r').close()
                 raise Exception('Can not create; file %s already exists' % filename)
             except IOError:
                 with open(filename,'wb') as fd:

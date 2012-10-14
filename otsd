@@ -10,11 +10,15 @@
 # modified, propagated, or distributed except according to the terms contained
 # in the LICENSE file.
 
-import sys
-import logging
-
-
 import argparse
+import logging
+import sys
+
+from wsgiref.simple_server import make_server
+from wsgiref.util import setup_testing_defaults
+
+from otsserver.rpc import WsgiInterface
+
 
 parser = argparse.ArgumentParser(description="OpenTimestamps server.")
 
@@ -26,7 +30,7 @@ parser.add_argument("-c","--config",action="store",default="~/.opentimestamps/co
         help="Location of config file. Defaults to: ~/.opentimestamps/config")
 parser.add_argument("-d","--data",action="store",default="~/.otsserver/",
         help="Location to store data in.")
-parser.add_argument("--bind",action="store",default="::",
+parser.add_argument("--bind",action="store",default="",
                              help="Bind to a specific address")
 parser.add_argument("-p","--port",action="store",default=2302,type=int,
                              help="Port, defaults to 2302")
@@ -37,30 +41,6 @@ args = parser.parse_args()
 
 logging.root.setLevel(args.log)
 
-
-import socket
-from jsonrpclib.SimpleJSONRPCServer import SimpleJSONRPCServer
-
-
-# This should bind to the most reasonable address for the specified name. If
-# IPv6 is found to, this will also bind to IPv4 at the same time.
-server = None
-for res in socket.getaddrinfo(args.bind, args.port, socket.AF_UNSPEC,
-                              socket.SOCK_STREAM, 0, socket.AI_PASSIVE):
-    af, socktype, proto, canonname, sa = res
-    try:
-        server = SimpleJSONRPCServer((args.bind,args.port),address_family=af)
-    except socket.error as msg:
-        server = None
-        continue
-if server is None:
-    logging.critical("Couldn't bind to address: %s",msg)
-    sys.exit(1)
-
-from otsserver.rpc import RpcInterface,JsonWrapper
-
-rpc_interface = RpcInterface(args.data)
-json_wrapped_rpc_interface = JsonWrapper(rpc_interface)
-server.register_instance(json_wrapped_rpc_interface)
-
-server.serve_forever()
+wsgi_interface = WsgiInterface()
+httpd = make_server(args.bind, args.port, wsgi_interface)
+httpd.serve_forever()

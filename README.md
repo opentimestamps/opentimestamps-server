@@ -35,9 +35,9 @@ Verify it:
 Hacking
 -------
 
-Tested with Python 3.2.3, python3-gnupg
+Requires Python 3 and python3-gnupg
 
-This repository uses sub-modules for the opentimestamps-client and jsonrpclib:
+This repository uses sub-modules for the opentimestamps-client:
 
     git submodule update --init --recursive
 

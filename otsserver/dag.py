@@ -74,7 +74,7 @@ class _MerkleTipsStore(BinaryHeader):
             idx = len(self) + idx
 
         if idx >= len(self) or idx < 0:
-            raise IndexError('tips index out of range %d %d'%(idx,len(self)))
+            raise IndexError('tips index out of range; got %d; range 0 to %d inclusive'%(idx,len(self)-1))
 
         self._fd.seek(self.header_length + (idx * self.width))
         return self._fd.read(self.width)

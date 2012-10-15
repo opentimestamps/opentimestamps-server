@@ -28,7 +28,7 @@ class _MerkleTipsStore(BinaryHeader):
     header_magic_uuid = uuid.UUID('00c5f8f8-1355-11e2-afce-6f3bd8706b74')
     header_magic_text = b'OpenTimestamps  MerkleTipsStore'
 
-    major_version = 0
+    major_version = 1
     minor_version = 0
 
     header_struct_format = '16s 16p'

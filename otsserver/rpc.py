@@ -19,7 +19,6 @@ from opentimestamps.dag import *
 from opentimestamps.serialization import *
 from opentimestamps.notary import *
 
-from .calendar import MultiNotaryCalendar
 from . import implementation_identifier as server_implementation_id
 
 # TODO: exceptions class.
@@ -36,16 +35,15 @@ class WsgiInterface:
 
     _sourcecode_url = 'https://github.com/petertodd/opentimestamps-server.git'
 
-    def __init__(self):
-        self.calendar = MultiNotaryCalendar(dag=Dag())
+    def __init__(self,calendar=None):
+        assert calendar is not None
+        self.calendar = calendar
 
     def __call__(self,environ,start_response):
         try:
             path = environ['PATH_INFO']
-            print('path_info',path)
         except KeyError:
             path = environ['REQUEST_URI'].decode('utf-8').split('=', 1)[0]
-            print('request_uri',environ['REQUEST_URI'])
 
         method = environ['REQUEST_METHOD']
 
@@ -76,7 +74,6 @@ class WsgiInterface:
         if fn is not None:
             args = [json_deserialize(json.loads(unquote_plus(arg))) for arg in path[1:]]
             kwargs = {k:json_deserialize(json.loads(v)) for k,v in kwargs.items()}
-            print(path,method,args,kwargs)
 
             try:
                 fn_ret = dispatch()(*args,**kwargs)
@@ -135,20 +132,50 @@ class WsgiInterface:
                 r.append((str(cmd),str(doctext)))
         return r
 
-    def get_merkle_child(self,notary=None):
-        if not isinstance(notary,Notary):
-            raise Exception('expected Notary, not %r' % notary.__class__)
-        return self.calendar.get_merkle_child(notary)
+    def get_merkle_tip(self):
+        """Return a list of operations that will create a merkle tip of the whole calendar.
 
-    def post_verification(self,verify_op=None):
-        if not isinstance(verify_op,Op):
-            raise Exception('expected Op, not %r' % verify_op.__class__)
-        return self.calendar.add_verification(verify_op)
+        Sign the last operation in this list with your signature and return the
+        list, and your new signature, to the server via the post_verification
+        method.
+        """
+        return self.calendar.get_merkle_tip()
+
+    def post_verification(self,ops=None):
+        """Add a new verification.
+
+        ops should be a list of operations comprising the verification. The
+        server will determine if the operations can be incorporated into the
+        calendar.
+        """
+        for op in ops:
+            if not isinstance(op,Op):
+                raise Exception('expected Op, not %r' % op.__class__)
+        return self.calendar.add_verification(ops)
 
     def post_digest(self,op=None):
+        """Add a digest to the calendar.
+
+        Returns a list of operations that collectively form a path between the
+        operation you submitted, and an operation in the calendar proper.
+
+        The order of this list is undefined. If the submission is successful
+        metadata for at least one operation will be set, with the server's
+        canonical url. Potentially more than one returned operation will have
+        metadata set.
+        """
         if not isinstance(op,Op):
             raise Exception('expected Op, not %r' % op.__class__)
         return self.calendar.submit(op)
 
-    def get_path(self,source,dest):
-        return self.calendar.dag.path(source,dest)
+    def get_path(self,op=None,notary_spec=None):
+        """Find a path between an operation and a signature from the specified notary.
+
+        Returns a list of operations that form paths to one or more
+        verification operation with a signature by the specified notary.
+
+        The order of the list is undefined.
+        """
+        assert op is not None
+        assert notary_spec is not None
+        return self.calendar.path(op,notary_spec)

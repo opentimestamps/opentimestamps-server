@@ -12,11 +12,13 @@
 
 import argparse
 import logging
+import os
 import sys
 
 from wsgiref.simple_server import make_server
 from wsgiref.util import setup_testing_defaults
 
+from otsserver.calendar import MerkleCalendar
 from otsserver.rpc import WsgiInterface
 
 
@@ -26,11 +28,9 @@ parser.add_argument("-q","--quiet",action="count",
                              help="Be more quiet.")
 parser.add_argument("-v","--verbose",action="count",
                              help="Be more verbose. Both -v and -q may be used multiple times.")
-parser.add_argument("-c","--config",action="store",default="~/.opentimestamps/config",
-        help="Location of config file. Defaults to: ~/.opentimestamps/config")
 parser.add_argument("-d","--data",action="store",default="~/.otsserver/",
         help="Location to store data in.")
-parser.add_argument("--bind",action="store",default="",
+parser.add_argument("--bind",action="store",default="localhost",
                              help="Bind to a specific address")
 parser.add_argument("-p","--port",action="store",default=2302,type=int,
                              help="Port, defaults to 2302")
@@ -38,9 +38,19 @@ parser.add_argument("--log",action="store",default='WARNING',
                              help="Set log level")
 
 args = parser.parse_args()
-
 logging.root.setLevel(args.log)
 
-wsgi_interface = WsgiInterface()
+args.data = os.path.expanduser(os.path.normpath(args.data))
+
+calendar_dir = args.data + '/calendar'
+
+create = False
+if not os.path.exists(calendar_dir):
+    create = True
+
+calendar = MerkleCalendar(server_url='http://{}:{}'.format(args.bind,args.port),
+                          datadir=calendar_dir,create=create)
+
+wsgi_interface = WsgiInterface(calendar=calendar)
 httpd = make_server(args.bind, args.port, wsgi_interface)
 httpd.serve_forever()

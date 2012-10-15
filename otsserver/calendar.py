@@ -9,155 +9,137 @@
 # modified, propagated, or distributed except according to the terms contained
 # in the LICENSE file.
 
+import binascii
+import logging
+import os
 import time
+import uuid
 
-from opentimestamps.dag import *
+from opentimestamps.dag import Digest,Hash,Verify,OpMetadata
+from .dag import MerkleDag,MerkleSignatureStore
+
 
 class CalendarError(Exception):
     pass
 
-
 class Calendar(object):
-    """Link and timestamp collections of digests
+    """Manage a calendar linking digests to signatures
 
-    The calendar takes submitted digests and links them together with hash
-    operations to create master digests to then be timestamped by notaries.
+    The calendar is the middleware between the RPC interface and the actual
+    storage of digests and signatures.
     """
 
-    def submit(self,digests):
-        """Submit one or more digests to the calendar.
+    def merkle_tip(self):
+        """see rpc.get_merkle_tip"""
+        raise NotImplementedError
 
-        digests must be Op-subclass instances.
+    def submit_verification(self,ops):
+        """see rpc.post_verification"""
+        raise NotImplementedError
 
-        Returns a list of Op's
-        """
+    def submit(self,digest):
+        """see rpc.post_digest"""
         raise NotImplementedError
 
     def path(self,sources,dests):
-        """Find a path between sources and dests
-
-        """
+        """see rpc.get_path"""
         raise NotImplementedError
 
-class LinearCalendar(Calendar):
-    """Hashes digests into a linear chain
+class MerkleCalendar(Calendar):
+    """Calendar implemented on top of a MerkleDag"""
 
-    The most simple calendar possible.
-    """
-
-    def __init__(self,algorithm='sha256',dag=None):
-        self.algorithm = algorithm
-        self.dag = dag
-
-        self.most_recent_digest = self.dag.add(Digest(digest=b''))
-
-    def submit(self,digests):
-        r = []
-        for digest in digests:
-            if digest in self.dag:
-                r.append(self.dag[digest])
-            else:
-                h = self.dag.add(Hash(inputs=(self.most_recent_digest,digest)))
-                r.append(h)
-                self.most_recent_digest = h
-        return r
-
-    def path(self,sources,dests):
-        """Find a path between sources and dests
-
-        """
-        raise NotImplementedError
-
-
-
-class MultiNotaryCalendar(Calendar):
-    """Efficiently sign digests with multiple notaries
-
-    See doc/design.md
-    """
-
-    all_submitted_ops = None
-    known_notaries = None
+    signatures = None
     dag = None
 
-    class __NotaryEntry:
-        def __init__(self,**kwargs):
-            self.last_digest_signed_idx = 0
-            self.pending_signatures = {}
-            self.__dict__.update(kwargs)
+    def __init__(self,
+            server_url=None,
+            hash_algorithm='sha256',
+            datadir=None,
+            create=False):
 
-    class __PendingSignature:
-        def __init__(self,**kwargs):
-            self.created = time.time()
-            self.__dict__.update(kwargs)
-
-    def __init__(self,hash_algorithm='sha256',dag=None):
-        assert(dag is not None)
-        self.dag = dag
+        assert server_url is not None
+        self.server_url = server_url
         self.hash_algorithm = hash_algorithm
-        self.all_submitted_ops = []
-        self.known_notaries = {}
 
-        # start with at least one digest
-        self.all_submitted_ops.append(Digest(b'Hello World!'))
+        assert datadir is not None
+        self.datadir = datadir
+        self.dagdir = datadir + '/dag'
+        self.signaturesdir = datadir + '/signatures'
 
-    def get_merkle_child(self,notary):
-        if not notary.canonicalized():
-            raise CalendarError("get_merkle_child() expects a notary specification in canonical form")
+        self.calendar_uuid = None
+        if create:
+            os.mkdir(self.datadir)
+            os.mkdir(self.dagdir)
+            os.mkdir(self.signaturesdir)
 
-        digests_to_sign = None
-
-        try:
-            notary_entry = self.known_notaries[notary]
-        except KeyError:
-            notary_entry = self.__NotaryEntry()
-            self.known_notaries[notary] = notary_entry
-
-        start_idx = notary_entry.last_digest_signed_idx
-        end_idx = len(self.all_submitted_ops)
-
-        digests_to_sign = self.all_submitted_ops[start_idx:end_idx]
-
-        tree = build_merkle_tree(digests_to_sign,algorithm=self.hash_algorithm)
-
-        merkle_child = tree[-1]
-
-        notary_entry.pending_signatures[merkle_child.digest] = \
-                self.__PendingSignature(last_digest_signed_idx=end_idx,
-                                        tree=tree)
-
-        return merkle_child
+            self.calendar_uuid = uuid.uuid4()
+            with open(self.datadir + '/uuid','w') as fd:
+                fd.write(str(self.calendar_uuid) + '\n')
+        else:
+            with open(self.datadir + '/uuid','r') as fd:
+                self.calendar_uuid = (
+                    uuid.UUID(fd.read().strip()))
 
 
-    def add_verification(self,verify_op):
-        """Adds a Verify operation"""
-        digest = verify_op.inputs[0]
-        signature = verify_op.signature
-        try:
-            notary_entry = self.known_notaries[signature.notary]
-        except KeyError:
-            raise CalendarError("Notary unknown to us")
+        def metadata_constructor(**kwargs):
+            return OpMetadata(uuid=self.calendar_uuid.bytes,**kwargs)
+        self._metadata_constructor = metadata_constructor
 
-        try:
-            pending_signature = notary_entry.pending_signatures[digest]
-        except KeyError:
-            raise CalendarError("Pending signature not found; notary probably has not called get_merkle_child() yet")
+        self.dag = MerkleDag(
+                       metadata_url=self.server_url,
+                       datadir=self.dagdir,
+                       hash_algorithm=hash_algorithm,
+                       metadata_constructor=metadata_constructor,
+                       create=create)
 
-        self.dag.update(pending_signature.tree)
-        self.dag.add(verify_op)
+        self.signatures = MerkleSignatureStore(datadir=self.signaturesdir,metadata_url=self.server_url)
 
-        notary_entry.last_digest_signed_idx = pending_signature.last_digest_signed_idx
 
-        notary_entry.pending_signatures.pop(digest)
+    def get_merkle_tip(self):
+        return self.dag.get_merkle_tip()
 
-        # The verification itself needs to become part of the digests verified.
-        # But rather than just do that, also include the input for that
-        # verification, so that in the future it can be by-passed if it turns
-        # out to be useless.
-        self.submit(verify_op)
-        self.submit(verify_op.inputs[0])
+    def add_verification(self,ops):
+        """Adds a verification"""
+        verify_op = ops[-1]
+        tips_len = ops[-2].metadata[self.server_url]._tips_len
+        tip_ops = self.dag.get_merkle_tip(tips_len=tips_len)
+
+        # Make sure the verification input really is the tip we expected it to be
+        if tip_ops[-1].digest == verify_op.inputs[0]:
+            logging.info(\
+'Received GOOD signature {} on digest {} at tips len {}'\
+.format(verify_op.signature,binascii.hexlify(verify_op.inputs[0]),tips_len))
+
+            verify_op.metadata[self.server_url] = self._metadata_constructor(_tips_len=tips_len)
+            self.signatures.add(verify_op)
 
 
     def submit(self,op):
-        self.all_submitted_ops.append(op)
-        return ()
+        # Don't let users submit ops directly to the calendar, hash them with
+        # some garbage first. If we don't do this we're effectively letting
+        # people put arbitrary junk in other clients signatures.
+        junk_bytes = os.urandom(32)
+        hash_op = Hash(inputs=(op,junk_bytes))
+        return [self.dag.add(hash_op)]
+
+    def path(self,digest_op,notary_spec):
+        try:
+            min_tips_len = digest_op.metadata[self.server_url]._idx + 1
+        except KeyError:
+            return []
+        except AttributeError:
+            return []
+
+        r = []
+
+        matching_verify_ops = self.signatures.find(notary_spec,min_tips_len)
+
+        for verify_op in matching_verify_ops:
+            path = self.dag.path(digest_op,verify_op)
+            r.extend(path)
+            r.append(verify_op)
+
+        if r:
+            return r
+        else:
+            return None

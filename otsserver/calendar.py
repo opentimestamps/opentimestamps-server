@@ -15,8 +15,12 @@ import os
 import time
 import uuid
 
+import otsserver
+import opentimestamps
+
 from opentimestamps.dag import Digest,Hash,Verify,OpMetadata
 from .dag import MerkleDag,MerkleSignatureStore
+
 
 
 class CalendarError(Exception):
@@ -91,6 +95,15 @@ class MerkleCalendar(Calendar):
                        hash_algorithm=hash_algorithm,
                        metadata_constructor=metadata_constructor,
                        create=create)
+
+        if not len(self.dag):
+            # Always have at least one digest so signing works from the start.
+            #
+            # Might as well timestamp our implementation first!
+            h = Hash(algorithm=hash_algorithm,
+                     inputs=(bytes(otsserver.implementation_identifier,'utf8'),
+                             bytes(opentimestamps.implementation_identifier,'utf8')))
+            self.dag.add(h)
 
         self.signatures = MerkleSignatureStore(datadir=self.signaturesdir,metadata_url=self.server_url)
 

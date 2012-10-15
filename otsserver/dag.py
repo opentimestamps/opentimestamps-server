@@ -368,6 +368,8 @@ class MerkleDag(object):
             # Or the tip is way off to the right
             return idx + 2**(idx_height+1)
 
+    def __len__(self):
+        return len(self.tips)
 
     def __getitem__(self,idx):
         if isinstance(idx,int):

@@ -111,6 +111,50 @@ class TestMerkleDag(unittest.TestCase):
                 (0,0,1,0,0,1,2,0,0,1,0,0,1,2,3,0,0,1,0,0,1,2,0,0,1,0,0,1,2,3,4),
                 [MerkleDag.height_at_idx(i) for i in range(0,31)])
 
+    def test_get_subtree_tip_indexes(self):
+        # 0,0,1,0,0,1,2,0,0,1,0,0,1,2,3,0,0,1,0,0,1,2,0,0,1,0,0,1,2,3,4
+        self.assertSequenceEqual(
+                MerkleDag.get_subtree_tip_indexes(1),
+                (0,))
+        self.assertSequenceEqual(
+                MerkleDag.get_subtree_tip_indexes(2),
+                (1,0))
+        self.assertSequenceEqual(
+                MerkleDag.get_subtree_tip_indexes(3),
+                (2,))
+        self.assertSequenceEqual(
+                MerkleDag.get_subtree_tip_indexes(4),
+                (3,2))
+        self.assertSequenceEqual(
+                MerkleDag.get_subtree_tip_indexes(5),
+                (4,3,2))
+        self.assertSequenceEqual(
+                MerkleDag.get_subtree_tip_indexes(6),
+                (5,2))
+        self.assertSequenceEqual(
+                MerkleDag.get_subtree_tip_indexes(7),
+                (6,))
+        self.assertSequenceEqual(
+                MerkleDag.get_subtree_tip_indexes(30),
+                (29,14))
+        self.assertSequenceEqual(
+                MerkleDag.get_subtree_tip_indexes(31),
+                (30,))
+
+
+    def test_tip_child(self):
+        # 0,0,1,0,0,1,2,0,0,1,0,0,1,2,3,0,0,1,0,0,1,2,0,0,1,0,0,1,2,3,4
+        self.assertEqual(MerkleDag.tip_child( 0), 2) # height 0, tip  0
+        self.assertEqual(MerkleDag.tip_child( 1), 2) # height 0, tip  1
+        self.assertEqual(MerkleDag.tip_child( 2), 6) # height 1, tip  0
+        self.assertEqual(MerkleDag.tip_child( 3), 5) # height 0, tip  2
+        self.assertEqual(MerkleDag.tip_child( 4), 5) # height 0, tip  3
+        self.assertEqual(MerkleDag.tip_child( 5), 6) # height 1, tip  1
+        self.assertEqual(MerkleDag.tip_child( 7), 9) # height 0, tip  4
+        self.assertEqual(MerkleDag.tip_child( 8), 9) # height 0, tip  5
+        self.assertEqual(MerkleDag.tip_child( 9),13) # height 1, tip  2
+        self.assertEqual(MerkleDag.tip_child(14),30) # height 3, tip  0
+
 
     def test(self):
         dag = MerkleDag(self.temp_dir,create=True)

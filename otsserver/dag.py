@@ -127,21 +127,99 @@ class MerkleDag(object):
     # Height means at that index the digest represents 2**h digests. Thus
     # height for submitted is 0
 
-    def get_subtree_tips(self):
-        """Return the tips of the subtrees, smallest to largest"""
+    @staticmethod
+    def get_subtree_tip_indexes(tips_len):
+        """Return the indexes of the tips of the subtrees, smallest to largest, for a tips array of a given length.
 
-        # Like height_at_idx basically biggest possible tip downwards
+        The shortest tree will the the first element, the largest the last.
+        """
+
+        # Basically, start at the last index, and walk backwards, skipping over
+        # how many elemenets would be in a tree of the height that the index
+        # position has.
         r = []
-        idx = 0
+        idx = tips_len - 1
+        while idx >= 0:
+            r.append(idx)
+            idx -= 2**(MerkleDag.height_at_idx(idx)+1)-1
+        return r
+
+
+    def _build_merkle_tree(self,parents,_accumulator=None):
+        """Build a merkle tree, deterministicly
+
+        parents - iterable of all the parents you want in the tree.
+
+        Returns an iterable of all the intermediate digests created, and the
+        final child, which will be at the end. If parents has exactly one item
+        in it, that parent is the merkle tree child.
+        """
+
+        # This is a copy of opentimestamps.dag.build_merkle_tree, included here
+        # because unlike that function this one has to happen deterministicly,
+        # and we don't want changes there to impact what we're doing here.
+
+        accumulator = _accumulator
+        if accumulator is None:
+            accumulator = []
+            parents = iter(parents)
+
+        next_level_starting_idx = len(accumulator)
+
         while True:
-            for h in reversed(range(0,64)):
-                if idx + 2**h <= len(self.tips):
-                    idx += 2**h
-                    break
-            if idx >= len(self.tips):
-                break
-            r.append(self.tips[idx-1])
-        return tuple(reversed(r))
+            try:
+                p1 = next(parents)
+            except StopIteration:
+                # Even number of items, possibly zero.
+                if len(accumulator) == 0 and _accumulator is None:
+                    # We must have been called with nothing at all.
+                    raise ValueError("No parent digests given to build a merkle tree from""")
+                elif next_level_starting_idx < len(accumulator):
+                    return self._build_merkle_tree(iter(accumulator[next_level_starting_idx:]),
+                                                   _accumulator=accumulator)
+                else:
+                    return accumulator
+
+            try:
+                p2 = next(parents)
+            except StopIteration:
+                # We must have an odd number of elements at this level, or there
+                # was only one parent.
+                if len(accumulator) == 0 and _accumulator is None:
+                    # Called with exactly one parent
+                    return (p1,)
+                elif next_level_starting_idx < len(accumulator):
+                    accumulator.append(p1)
+                    # Note how for an odd number of items we reverse the list. This
+                    # switches the odd item out each time. If we didn't do this the
+                    # odd item out on the first level would effectively rise to the
+                    # top, and have an abnormally short path. This also makes the
+                    # overall average path length slightly shorter by distributing
+                    # unfairness.
+                    return self._build_merkle_tree(iter(reversed(accumulator[next_level_starting_idx:])),
+                                                   _accumulator=accumulator)
+                else:
+                    return accumulator
+
+            h = self._Hash(inputs=(p1,p2))
+            accumulator.append(h)
+
+
+    def get_merkle_tip(self,tips_len=None):
+        if not tips_len:
+            tips_len = len(self.tips)
+        tips = MerkleDag.get_subtree_tip_indexes(tips_len)
+
+        tips = [self[tip] for tip in tips]
+
+        merkle_tip_ops = self._build_merkle_tree(tips)
+
+        metadata = self.metadata_constructor()
+        metadata._tips_len = tips_len
+        merkle_tip_ops[-1].metadata[self.metadata_url] = metadata
+
+        return merkle_tip_ops
+
 
     @staticmethod
     def height_at_idx(idx):
@@ -162,14 +240,39 @@ class MerkleDag(object):
                     break
         return last_h
 
-    def __getitem__(self,idx):
-        h = self.height_at_idx(idx)
-        if h == 0:
-            return Digest(digest=self.tips[idx])
+    @staticmethod
+    def tip_child(idx):
+        """Return the index of the child for a tip"""
+        # Two possibilities, either we're next to the tip
+        idx_height = MerkleDag.height_at_idx(idx)
+        if idx_height+1 == MerkleDag.height_at_idx(idx+1):
+            return idx+1
         else:
-            return Hash(inputs=(
-                            self.tips[idx-1],
-                            self.tips[idx-2**self.height_at_idx(idx)]))
+            # Or the tip is way off to the right
+            return idx + 2**(idx_height+1)
+
+
+    def __getitem__(self,idx):
+        if isinstance(idx,int):
+            h = self.height_at_idx(idx)
+            if h == 0:
+                return Digest(digest=self.tips[idx])
+            else:
+                return self._Hash(inputs=(
+                                          self.tips[idx-1],
+                                          self.tips[idx-2**self.height_at_idx(idx)]))
+        elif isinstance(idx,Op):
+            # FIXME: Not terribly useful. Similarly could add support for when
+            # the op has _tips_len metadata.
+            try:
+                metadata = idx.metadata[self.metadata_url]
+            except KeyError:
+                raise IndexError("Can't find digest; no index metadata")
+            else:
+                return self.__getitem__(metadata._idx)
+        else:
+            raise IndexError("Can only index by tips index or Op; got %r" % idx.__class__)
+
 
     def add(self,new_digest_op):
         """Add a digest"""
@@ -181,8 +284,46 @@ class MerkleDag(object):
         while self.height_at_idx(len(self.tips)) != 0:
             # Index of the hash that will be added
             idx = len(self.tips)
-            h = Hash(inputs=(
-                        self.tips[idx-1],
-                        self.tips[idx-2**self.height_at_idx(idx)]),
-                     hints_idx=idx)
+            h = self._Hash(inputs=(self.tips[idx-1],
+                                   self.tips[idx-2**self.height_at_idx(idx)]))
+
             self.tips.append(h.digest)
+
+        return new_digest_op
+
+
+    def path(self,digest_op,verify_op):
+        """Return the path from a digest_op to a verify_op
+
+        The digest op must be a part of this dag.
+        """
+        r = []
+        try:
+            op_idx = digest_op.metadata[self.metadata_url]._idx
+        except KeyError:
+            return None
+        except AttributeError:
+            return None
+
+        try:
+            tips_len = verify_op.metadata[self.metadata_url]._tips_len
+        except KeyError:
+            return None
+        except AttributeError:
+            return None
+
+        # Get the set of all tips this verification was made over
+        target_tips = set(self.get_subtree_tip_indexes(tips_len))
+
+        # From the digest_op's index, climb the tree until we intersect one of the target tips
+        path = []
+        while op_idx not in target_tips:
+            op_idx = self.tip_child(op_idx)
+            path.append(self[op_idx])
+
+        # Extend that path with the merkle tree of those tips.
+        path.extend(self.get_merkle_tip(tips_len))
+
+        # FIXME: we probably should prune that path; not all those ops are required.
+
+        return path

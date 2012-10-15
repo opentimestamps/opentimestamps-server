@@ -44,6 +44,8 @@ args = parser.parse_args()
 logging.root.setLevel(args.log)
 
 args.data = os.path.expanduser(os.path.normpath(args.data))
+if not os.path.exists(args.data):
+    os.mkdir(args.data)
 
 calendar_dir = args.data + '/calendar'
 

@@ -18,12 +18,15 @@ import sys
 from wsgiref.simple_server import make_server
 from wsgiref.util import setup_testing_defaults
 
+import otsserver
+
 from otsserver.calendar import MerkleCalendar
 from otsserver.rpc import WsgiInterface
 
 
 parser = argparse.ArgumentParser(description="OpenTimestamps server.")
 
+parser.add_argument("--version",action="version",version=otsserver.implementation_identifier)
 parser.add_argument("-q","--quiet",action="count",
                              help="Be more quiet.")
 parser.add_argument("-v","--verbose",action="count",

@@ -26,11 +26,11 @@ class _MerkleTipsStore(BinaryHeader):
     minor_version = 0
 
     header_struct_format = '16s 16p'
-    header_field_names = ('tips_uuid_bytes','algorithm')
+    header_field_names = ('tips_uuid_bytes','hash_algorithm')
 
     header_length = 128
 
-    def __init__(self,filename,tips_uuid=None,algorithm=None,create=False):
+    def __init__(self,filename,tips_uuid=None,hash_algorithm=None,create=False):
         if create:
             # Only create a tips store if the file doesn't already exist.
             #
@@ -46,7 +46,7 @@ class _MerkleTipsStore(BinaryHeader):
                     if tips_uuid is None:
                         tips_uuid = uuid.uuid4() # Random bytes method
                     self.tips_uuid_bytes = tips_uuid.bytes
-                    self.algorithm = bytes(algorithm,'utf8')
+                    self.hash_algorithm = bytes(hash_algorithm,'utf8')
                     self._write_header(self._fd)
 
 
@@ -55,7 +55,7 @@ class _MerkleTipsStore(BinaryHeader):
         self.tips_uuid = uuid.UUID(bytes=self.tips_uuid_bytes)
 
         # FIXME: multi-algo support
-        assert self.algorithm == b'sha256'
+        assert self.hash_algorithm == b'sha256'
         self.width = 32
 
         if tips_uuid is not None and self.tips_uuid != tips_uuid:
@@ -159,7 +159,7 @@ class MerkleDag(object):
             self.tips_filename = datadir + '/tips.dat'
             self.tips = _MerkleTipsStore(
                             self.tips_filename,
-                            algorithm=algorithm,
+                            hash_algorithm=hash_algorithm,
                             tips_uuid=self.uuid,
                             create=True)
 
@@ -169,7 +169,7 @@ class MerkleDag(object):
         self.tips_filename = datadir + '/tips.dat'
         self.tips = _MerkleTipsStore(
                         self.tips_filename,
-                        algorithm=algorithm,
+                        hash_algorithm=hash_algorithm,
                         create=False)
 
 

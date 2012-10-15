@@ -34,11 +34,11 @@ class Test_MerkleTipsStore(unittest.TestCase):
         # TipsStore creation
         filename = self.temp_dir + '/tips.dat'
 
-        tips = _MerkleTipsStore(filename,algorithm='sha256',create=True)
+        tips = _MerkleTipsStore(filename,hash_algorithm='sha256',create=True)
 
         # Shouldn't be able to create twice
         with self.assertRaises(Exception):
-            _MerkleTipsStore(filename,algorithm='sha256',create=True)
+            _MerkleTipsStore(filename,hash_algorithm='sha256',create=True)
 
         self.assertEqual(len(tips),0)
 

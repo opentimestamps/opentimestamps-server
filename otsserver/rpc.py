@@ -89,7 +89,7 @@ class WsgiInterface:
                 tb_file.close()
                 return [bytes(r,'utf8')] 
             else:
-                response_headers = [('Content-Type','application/json')]
+                response_headers = [('Content-Type','application/json; charset=utf-8')]
                 start_response('200 OK',response_headers)
                 r = json.dumps(json_serialize(fn_ret),indent=4)
                 return [bytes(r,'utf8')] 

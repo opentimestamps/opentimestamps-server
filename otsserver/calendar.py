@@ -19,7 +19,7 @@ import otsserver
 import opentimestamps
 
 from opentimestamps.dag import Digest,Hash,Verify,OpMetadata
-from .dag import MerkleDag,MerkleSignatureStore
+from .dag import MerkleMountainRangeDag,MerkleMountainRangeSignatureStore
 
 
 
@@ -50,7 +50,7 @@ class Calendar(object):
         raise NotImplementedError
 
 class MerkleCalendar(Calendar):
-    """Calendar implemented on top of a MerkleDag"""
+    """Calendar implemented on top of a MerkleMountainRangeDag"""
 
     signatures = None
     dag = None
@@ -89,7 +89,7 @@ class MerkleCalendar(Calendar):
             return OpMetadata(uuid=self.calendar_uuid.bytes,**kwargs)
         self._metadata_constructor = metadata_constructor
 
-        self.dag = MerkleDag(
+        self.dag = MerkleMountainRangeDag(
                        metadata_url=self.server_url,
                        datadir=self.dagdir,
                        hash_algorithm=hash_algorithm,
@@ -105,7 +105,7 @@ class MerkleCalendar(Calendar):
                              bytes(opentimestamps.implementation_identifier,'utf8')))
             self.dag.add(h)
 
-        self.signatures = MerkleSignatureStore(datadir=self.signaturesdir,metadata_url=self.server_url)
+        self.signatures = MerkleMountainRangeSignatureStore(datadir=self.signaturesdir,metadata_url=self.server_url)
 
 
     def get_merkle_tip(self):

@@ -20,88 +20,88 @@ import uuid
 from opentimestamps.dag import *
 from opentimestamps.serialization import *
 
-from ..dag import _MerkleTipsStore
+from ..dag import _MountainPeaksStore
 from ..dag import *
 
-class Test_MerkleTipsStore(unittest.TestCase):
+class Test_MountainPeaksStore(unittest.TestCase):
     def setUp(self):
-        self.temp_dir = tempfile.mkdtemp(prefix='tmpTipsStore')
+        self.temp_dir = tempfile.mkdtemp(prefix='tmpPeaksStore')
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
 
     def test(self):
-        # TipsStore creation
-        filename = self.temp_dir + '/tips.dat'
+        # PeaksStore creation
+        filename = self.temp_dir + '/peaks.dat'
 
-        tips = _MerkleTipsStore(filename,hash_algorithm='sha256',create=True)
+        peaks = _MountainPeaksStore(filename,hash_algorithm='sha256',create=True)
 
         # Shouldn't be able to create twice
         with self.assertRaises(Exception):
-            _MerkleTipsStore(filename,hash_algorithm='sha256',create=True)
+            _MountainPeaksStore(filename,hash_algorithm='sha256',create=True)
 
-        self.assertEqual(len(tips),0)
+        self.assertEqual(len(peaks),0)
 
         # Shouldn't be able to index yet
         with self.assertRaises(IndexError):
-            tips[0]
+            peaks[0]
         with self.assertRaises(IndexError):
-            tips[1]
+            peaks[1]
         with self.assertRaises(IndexError):
-            tips[-1]
+            peaks[-1]
 
-        # Get how long the tips file is.
+        # Get how long the peaks file is.
         #
-        # Tips always seeks first, so this is safe.
-        tips._fd.seek(0,2)
-        old_fd_tell = tips._fd.tell()
+        # Peaks always seeks first, so this is safe.
+        peaks._fd.seek(0,2)
+        old_fd_tell = peaks._fd.tell()
 
         # can't add wrong width digest
         with self.assertRaises(ValueError):
-            tips.append(b'')
+            peaks.append(b'')
         with self.assertRaises(ValueError):
-            tips.append(b'a')
+            peaks.append(b'a')
         with self.assertRaises(ValueError):
-            tips.append(b'a'*(tips.width+1))
+            peaks.append(b'a'*(peaks.width+1))
 
         # Both of these have lengths, but are of the wrong type.
         with self.assertRaises(TypeError):
-            tips.append(tuple(range(0,tips.width)))
+            peaks.append(tuple(range(0,peaks.width)))
         with self.assertRaises(TypeError):
-            tips.append((1,2,3))
+            peaks.append((1,2,3))
 
         with self.assertRaises(TypeError):
-            tips.append('*'*tips.width)
+            peaks.append('*'*peaks.width)
 
         # None of the above should have modified the file
-        tips._fd.seek(0,2)
-        self.assertEqual(old_fd_tell,tips._fd.tell())
+        peaks._fd.seek(0,2)
+        self.assertEqual(old_fd_tell,peaks._fd.tell())
 
         def h(i):
-            return bytes(str(i).rjust(tips.width),'utf8')
+            return bytes(str(i).rjust(peaks.width),'utf8')
 
         # add stuff
         n = 100
         for i in range(0,n):
-            tips.append(h(i))
-            self.assertEqual(len(tips),i+1)
+            peaks.append(h(i))
+            self.assertEqual(len(peaks),i+1)
 
         # verify before and after re-opening
         for j in (1,2):
             for i in range(0,n):
-                self.assertEqual(h(i),tips[i])
-                self.assertEqual(h(n-i-1),tips[-i-1])
+                self.assertEqual(h(i),peaks[i])
+                self.assertEqual(h(n-i-1),peaks[-i-1])
 
-            tips = _MerkleTipsStore(filename)
+            peaks = _MountainPeaksStore(filename)
 
         # re-open with different UUID fails
         with self.assertRaises(Exception):
-            _MerkleTipsStore(filename,tips_uuid=uuid.uuid4())
+            _MountainPeaksStore(filename,peaks_uuid=uuid.uuid4())
 
 
-class TestMerkleDag(unittest.TestCase):
+class TestMerkleMountainRangeDag(unittest.TestCase):
     def setUp(self):
-        self.temp_dir = tempfile.mkdtemp(prefix='tmpMerkleDag')
+        self.temp_dir = tempfile.mkdtemp(prefix='tmpMerkleMountainRangeDag')
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
@@ -109,56 +109,56 @@ class TestMerkleDag(unittest.TestCase):
     def test_height_at_idx(self):
         self.assertSequenceEqual(
                 (0,0,1,0,0,1,2,0,0,1,0,0,1,2,3,0,0,1,0,0,1,2,0,0,1,0,0,1,2,3,4),
-                [MerkleDag.height_at_idx(i) for i in range(0,31)])
+                [MerkleMountainRangeDag.height_at_idx(i) for i in range(0,31)])
 
-    def test_get_subtree_tip_indexes(self):
+    def test_get_mountain_peak_indexes(self):
         # 0,0,1,0,0,1,2,0,0,1,0,0,1,2,3,0,0,1,0,0,1,2,0,0,1,0,0,1,2,3,4
         self.assertSequenceEqual(
-                MerkleDag.get_subtree_tip_indexes(1),
+                MerkleMountainRangeDag.get_mountain_peak_indexes(1),
                 (0,))
         self.assertSequenceEqual(
-                MerkleDag.get_subtree_tip_indexes(2),
+                MerkleMountainRangeDag.get_mountain_peak_indexes(2),
                 (1,0))
         self.assertSequenceEqual(
-                MerkleDag.get_subtree_tip_indexes(3),
+                MerkleMountainRangeDag.get_mountain_peak_indexes(3),
                 (2,))
         self.assertSequenceEqual(
-                MerkleDag.get_subtree_tip_indexes(4),
+                MerkleMountainRangeDag.get_mountain_peak_indexes(4),
                 (3,2))
         self.assertSequenceEqual(
-                MerkleDag.get_subtree_tip_indexes(5),
+                MerkleMountainRangeDag.get_mountain_peak_indexes(5),
                 (4,3,2))
         self.assertSequenceEqual(
-                MerkleDag.get_subtree_tip_indexes(6),
+                MerkleMountainRangeDag.get_mountain_peak_indexes(6),
                 (5,2))
         self.assertSequenceEqual(
-                MerkleDag.get_subtree_tip_indexes(7),
+                MerkleMountainRangeDag.get_mountain_peak_indexes(7),
                 (6,))
         self.assertSequenceEqual(
-                MerkleDag.get_subtree_tip_indexes(30),
+                MerkleMountainRangeDag.get_mountain_peak_indexes(30),
                 (29,14))
         self.assertSequenceEqual(
-                MerkleDag.get_subtree_tip_indexes(31),
+                MerkleMountainRangeDag.get_mountain_peak_indexes(31),
                 (30,))
 
 
-    def test_tip_child(self):
+    def test_peak_child(self):
         # 0,0,1,0,0,1,2,0,0,1,0,0,1,2,3,0,0,1,0,0,1,2,0,0,1,0,0,1,2,3,4
-        self.assertEqual(MerkleDag.tip_child( 0), 2) # height 0, tip  0
-        self.assertEqual(MerkleDag.tip_child( 1), 2) # height 0, tip  1
-        self.assertEqual(MerkleDag.tip_child( 2), 6) # height 1, tip  0
-        self.assertEqual(MerkleDag.tip_child( 3), 5) # height 0, tip  2
-        self.assertEqual(MerkleDag.tip_child( 4), 5) # height 0, tip  3
-        self.assertEqual(MerkleDag.tip_child( 5), 6) # height 1, tip  1
-        self.assertEqual(MerkleDag.tip_child( 7), 9) # height 0, tip  4
-        self.assertEqual(MerkleDag.tip_child( 8), 9) # height 0, tip  5
-        self.assertEqual(MerkleDag.tip_child( 9),13) # height 1, tip  2
-        self.assertEqual(MerkleDag.tip_child(14),30) # height 3, tip  0
+        self.assertEqual(MerkleMountainRangeDag.peak_child( 0), 2) # height 0, peak  0
+        self.assertEqual(MerkleMountainRangeDag.peak_child( 1), 2) # height 0, peak  1
+        self.assertEqual(MerkleMountainRangeDag.peak_child( 2), 6) # height 1, peak  0
+        self.assertEqual(MerkleMountainRangeDag.peak_child( 3), 5) # height 0, peak  2
+        self.assertEqual(MerkleMountainRangeDag.peak_child( 4), 5) # height 0, peak  3
+        self.assertEqual(MerkleMountainRangeDag.peak_child( 5), 6) # height 1, peak  1
+        self.assertEqual(MerkleMountainRangeDag.peak_child( 7), 9) # height 0, peak  4
+        self.assertEqual(MerkleMountainRangeDag.peak_child( 8), 9) # height 0, peak  5
+        self.assertEqual(MerkleMountainRangeDag.peak_child( 9),13) # height 1, peak  2
+        self.assertEqual(MerkleMountainRangeDag.peak_child(14),30) # height 3, peak  0
 
 
     def test(self):
-        dag = MerkleDag(self.temp_dir,create=True)
-        dag = MerkleDag(self.temp_dir)
+        dag = MerkleMountainRangeDag(self.temp_dir,create=True)
+        dag = MerkleMountainRangeDag(self.temp_dir)
 
         digest_ops = []
         n = 2**8
@@ -170,7 +170,7 @@ class TestMerkleDag(unittest.TestCase):
 
         pathdag = Dag()
         every_op = []
-        for i in range(0,len(dag.tips)):
+        for i in range(0,len(dag.peaks)):
             every_op.append(dag[i])
             pathdag.add(every_op[-1])
 

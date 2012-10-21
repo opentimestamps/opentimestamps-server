@@ -24,21 +24,21 @@ from opentimestamps._internal import BinaryHeader
 from opentimestamps.dag import Op,Digest,Hash,Verify,OpMetadata
 from opentimestamps.serialization import json_serialize,json_deserialize
 
-class _MerkleTipsStore(BinaryHeader):
-    header_magic_uuid = uuid.UUID('00c5f8f8-1355-11e2-afce-6f3bd8706b74')
-    header_magic_text = b'OpenTimestamps  MerkleTipsStore'
+class _MountainPeaksStore(BinaryHeader):
+    header_magic_uuid = uuid.UUID('0060b50a-1b3b-11e2-9733-6f3bd8706b74')
+    header_magic_text = b'OpenTimestamps  MountainPeaksStore'
 
     major_version = 1
     minor_version = 0
 
     header_struct_format = '16s 16p'
-    header_field_names = ('tips_uuid_bytes','hash_algorithm')
+    header_field_names = ('peaks_uuid_bytes','hash_algorithm')
 
     header_length = 128
 
-    def __init__(self,filename,tips_uuid=None,hash_algorithm=None,create=False):
+    def __init__(self,filename,peaks_uuid=None,hash_algorithm=None,create=False):
         if create:
-            # Only create a tips store if the file doesn't already exist.
+            # Only create a peaks store if the file doesn't already exist.
             #
             # Sure we could do this without race conditions with
             # os.open(O_CREAT), but that's not as portable and our attacker is
@@ -49,25 +49,25 @@ class _MerkleTipsStore(BinaryHeader):
             except IOError:
                 with open(filename,'wb') as fd:
                     self._fd = fd
-                    if tips_uuid is None:
-                        tips_uuid = uuid.uuid4() # Random bytes method
-                    self.tips_uuid_bytes = tips_uuid.bytes
+                    if peaks_uuid is None:
+                        peaks_uuid = uuid.uuid4() # Random bytes method
+                    self.peaks_uuid_bytes = peaks_uuid.bytes
                     self.hash_algorithm = bytes(hash_algorithm,'utf8')
                     self._write_header(self._fd)
 
 
         self._fd = open(filename,'rb+')
         self._read_header(self._fd)
-        self.tips_uuid = uuid.UUID(bytes=self.tips_uuid_bytes)
+        self.peaks_uuid = uuid.UUID(bytes=self.peaks_uuid_bytes)
 
         # FIXME: multi-algo support
         assert self.hash_algorithm == b'sha256'
         self.width = 32
 
-        if tips_uuid is not None and self.tips_uuid != tips_uuid:
+        if peaks_uuid is not None and self.peaks_uuid != peaks_uuid:
             raise Exception(
-                    'Expected to find UUID %s in MerkleDag tips store, but got %s' %
-                    (tips_uuid,self.tips_uuid))
+                    'Expected to find UUID %s in MerkleMountainRangeDag peaks store, but got %s' %
+                    (peaks_uuid,self.peaks_uuid))
 
     def __del__(self):
         try:
@@ -80,7 +80,7 @@ class _MerkleTipsStore(BinaryHeader):
             idx = len(self) + idx
 
         if idx >= len(self) or idx < 0:
-            raise IndexError('tips index out of range; got %d; range 0 to %d inclusive'%(idx,len(self)-1))
+            raise IndexError('peaks index out of range; got %d; range 0 to %d inclusive'%(idx,len(self)-1))
 
         self._fd.seek(self.header_length + (idx * self.width))
         return self._fd.read(self.width)
@@ -95,7 +95,7 @@ class _MerkleTipsStore(BinaryHeader):
         if not isinstance(digest,bytes):
             raise TypeError('digest must be bytes, not %s' % type(digest))
         if len(digest) != self.width:
-            raise ValueError('digest must be an exact multiple of the tips store width.')
+            raise ValueError('digest must be an exact multiple of the peaks store width.')
 
         self._fd.seek(0,2)
         self._fd.write(digest)
@@ -105,10 +105,10 @@ class _MerkleTipsStore(BinaryHeader):
             os.sync(self._fd.fileno())
 
 
-class MerkleSignatureStore:
-    """Persistent signature storage that works well with MerkleDag
+class MerkleMountainRangeSignatureStore:
+    """Persistent signature storage that works well with MerkleMountainRangeDag
 
-    Indexes the signatures first by their notary spec, and second by the tips
+    Indexes the signatures first by their notary spec, and second by the peaks
     length to which they were applied.
     """
 
@@ -128,20 +128,20 @@ class MerkleSignatureStore:
     def _unquote(self,nspec):
         return urllib.parse.unquote(nspec)
 
-    def _open_signature_file(self,mode,*,op=None,notary_spec=None,tips_len=None):
+    def _open_signature_file(self,mode,*,op=None,notary_spec=None,peaks_len=None):
         """Open a signature file
 
-        op       - Operation where the notary and tips_len will be extracted from
+        op       - Operation where the notary and peaks_len will be extracted from
         notary   - Specify notary explicitly
-        tips_len - Specify tips_len explicitly
+        peaks_len - Specify peaks_len explicitly
         """
         if not notary_spec:
             notary_spec = op.signature.notary
 
-        if not tips_len:
-            tips_len = op.metadata[self.metadata_url]._tips_len
+        if not peaks_len:
+            peaks_len = op.metadata[self.metadata_url]._peaks_len
 
-        return open(self.datadir + '/' + self._quote(str(notary_spec)) + '/' + str(tips_len).zfill(6) + '.json',mode)
+        return open(self.datadir + '/' + self._quote(str(notary_spec)) + '/' + str(peaks_len).zfill(6) + '.json',mode)
 
 
     def add(self,verify_op):
@@ -155,11 +155,11 @@ class MerkleSignatureStore:
         with self._open_signature_file('w',op=verify_op) as fd:
             fd.write(json.dumps(json_serialize(verify_op),indent=4))
 
-    def find(self,notary_spec,min_tips_len,limit=25):
-        """Find signatures after min_tips_len matching a notary specification
+    def find(self,notary_spec,min_peaks_len,limit=25):
+        """Find signatures after min_peaks_len matching a notary specification
 
         notary   - notary spec to limit search to
-        tips_len - minimum tips_len
+        peaks_len - minimum peaks_len
         limit    - max number to return
 
         Returns a list of matching signatures
@@ -189,21 +189,21 @@ class MerkleSignatureStore:
                 if err.errno != errno.ENOENT:
                     raise err
 
-            tips_len = None
+            peaks_len = None
             for sig_file in sig_files:
-                tips_len = int(sig_file[:-5]) # strip off the .json
-                if tips_len >= min_tips_len:
-                    with self._open_signature_file('r',notary_spec=notary_match,tips_len=tips_len) as fd:
+                peaks_len = int(sig_file[:-5]) # strip off the .json
+                if peaks_len >= min_peaks_len:
+                    with self._open_signature_file('r',notary_spec=notary_match,peaks_len=peaks_len) as fd:
                         r.append(json_deserialize(json.load(fd)))
                         break
         return r
 
 
 
-class MerkleDag(object):
-    """Dag for building merkle trees
+class MerkleMountainRangeDag(object):
+    """Dag for storing merkle mountain ranges 
 
-    See docs/dag-design.txt
+    See docs/merkle_mountain_range.md
     """
     def __init__(self,
             datadir,
@@ -217,19 +217,19 @@ class MerkleDag(object):
             if dag_uuid is None:
                 dag_uuid = uuid.uuid4()
             self.uuid = dag_uuid
-            self.tips_filename = datadir + '/tips.dat'
-            self.tips = _MerkleTipsStore(
-                            self.tips_filename,
+            self.peaks_filename = datadir + '/peaks.dat'
+            self.peaks = _MountainPeaksStore(
+                            self.peaks_filename,
                             hash_algorithm=hash_algorithm,
-                            tips_uuid=self.uuid,
+                            peaks_uuid=self.uuid,
                             create=True)
 
         # FIXME: how are we going to handle metadata that really should be in
         # ascii form? should have datadir + '/options' or something
 
-        self.tips_filename = datadir + '/tips.dat'
-        self.tips = _MerkleTipsStore(
-                        self.tips_filename,
+        self.peaks_filename = datadir + '/peaks.dat'
+        self.peaks = _MountainPeaksStore(
+                        self.peaks_filename,
                         hash_algorithm=hash_algorithm,
                         create=False)
 
@@ -245,20 +245,20 @@ class MerkleDag(object):
     # height for submitted is 0
 
     @staticmethod
-    def get_subtree_tip_indexes(tips_len):
-        """Return the indexes of the tips of the subtrees, smallest to largest, for a tips array of a given length.
+    def get_mountain_peak_indexes(peaks_len):
+        """Return the indexes of the peaks of the mountains, lowest to highest, for a peaks array of a given length.
 
-        The shortest tree will the the first element, the largest the last.
+        The lowest mountain will the the first element, the highest the last.
         """
 
         # Basically, start at the last index, and walk backwards, skipping over
         # how many elemenets would be in a tree of the height that the index
         # position has.
         r = []
-        idx = tips_len - 1
+        idx = peaks_len - 1
         while idx >= 0:
             r.append(idx)
-            idx -= 2**(MerkleDag.height_at_idx(idx)+1)-1
+            idx -= 2**(MerkleMountainRangeDag.height_at_idx(idx)+1)-1
         return r
 
 
@@ -322,25 +322,25 @@ class MerkleDag(object):
             accumulator.append(h)
 
 
-    def get_merkle_tip(self,tips_len=None):
-        if not tips_len:
-            tips_len = len(self.tips)
-        tips = MerkleDag.get_subtree_tip_indexes(tips_len)
+    def get_bagged_peaks(self,peaks_len=None):
+        if not peaks_len:
+            peaks_len = len(self.peaks)
+        peaks = MerkleMountainRangeDag.get_mountain_peak_indexes(peaks_len)
 
-        tips = [self[tip] for tip in tips]
+        peaks = [self[peak] for peak in peaks]
 
-        merkle_tip_ops = self._build_merkle_tree(tips)
+        merkle_peak_ops = self._build_merkle_tree(peaks)
 
         metadata = self.metadata_constructor()
-        metadata._tips_len = tips_len
-        merkle_tip_ops[-1].metadata[self.metadata_url] = metadata
+        metadata._peaks_len = peaks_len
+        merkle_peak_ops[-1].metadata[self.metadata_url] = metadata
 
-        return merkle_tip_ops
+        return merkle_peak_ops
 
 
     @staticmethod
     def height_at_idx(idx):
-        """Find the height of the subtree at a given tips index"""
+        """Find the height of the mountain at a given peaks index"""
 
         # Basically convert idx to the count of items left in the tree. Then
         # take away successively smaller trees, from the largest possible to
@@ -358,31 +358,31 @@ class MerkleDag(object):
         return last_h
 
     @staticmethod
-    def tip_child(idx):
-        """Return the index of the child for a tip"""
-        # Two possibilities, either we're next to the tip
-        idx_height = MerkleDag.height_at_idx(idx)
-        if idx_height+1 == MerkleDag.height_at_idx(idx+1):
+    def peak_child(idx):
+        """Return the index of the child for a peak"""
+        # Two possibilities, either we're next to the peak
+        idx_height = MerkleMountainRangeDag.height_at_idx(idx)
+        if idx_height+1 == MerkleMountainRangeDag.height_at_idx(idx+1):
             return idx+1
         else:
-            # Or the tip is way off to the right
+            # Or the peak is way off to the right
             return idx + 2**(idx_height+1)
 
     def __len__(self):
-        return len(self.tips)
+        return len(self.peaks)
 
     def __getitem__(self,idx):
         if isinstance(idx,int):
             h = self.height_at_idx(idx)
             if h == 0:
-                return Digest(digest=self.tips[idx])
+                return Digest(digest=self.peaks[idx])
             else:
                 return self._Hash(inputs=(
-                                          self.tips[idx-1],
-                                          self.tips[idx-2**self.height_at_idx(idx)]))
+                                          self.peaks[idx-1],
+                                          self.peaks[idx-2**self.height_at_idx(idx)]))
         elif isinstance(idx,Op):
             # FIXME: Not terribly useful. Similarly could add support for when
-            # the op has _tips_len metadata.
+            # the op has _peaks_len metadata.
             try:
                 metadata = idx.metadata[self.metadata_url]
             except KeyError:
@@ -390,27 +390,27 @@ class MerkleDag(object):
             else:
                 return self.__getitem__(metadata._idx)
         else:
-            raise IndexError("Can only index by tips index or Op; got %r" % idx.__class__)
+            raise IndexError("Can only index by peaks index or Op; got %r" % idx.__class__)
 
 
     def add(self,new_digest_op):
         """Add a digest"""
-        assert self.height_at_idx(len(self.tips))==0
+        assert self.height_at_idx(len(self.peaks))==0
 
-        self.tips.append(new_digest_op.digest)
+        self.peaks.append(new_digest_op.digest)
 
         metadata = self.metadata_constructor()
-        metadata._idx = len(self.tips) - 1
+        metadata._idx = len(self.peaks) - 1
         new_digest_op.metadata[self.metadata_url] = metadata
 
-        # Build up the trees
-        while self.height_at_idx(len(self.tips)) != 0:
+        # Build up the mountains
+        while self.height_at_idx(len(self.peaks)) != 0:
             # Index of the hash that will be added
-            idx = len(self.tips)
-            h = self._Hash(inputs=(self.tips[idx-1],
-                                   self.tips[idx-2**self.height_at_idx(idx)]))
+            idx = len(self.peaks)
+            h = self._Hash(inputs=(self.peaks[idx-1],
+                                   self.peaks[idx-2**self.height_at_idx(idx)]))
 
-            self.tips.append(h.digest)
+            self.peaks.append(h.digest)
 
         return new_digest_op
 
@@ -429,23 +429,24 @@ class MerkleDag(object):
             return None
 
         try:
-            tips_len = verify_op.metadata[self.metadata_url]._tips_len
+            peaks_len = verify_op.metadata[self.metadata_url]._peaks_len
         except KeyError:
             return None
         except AttributeError:
             return None
 
-        # Get the set of all tips this verification was made over
-        target_tips = set(self.get_subtree_tip_indexes(tips_len))
+        # Get the set of all peaks this verification was made over
+        target_peaks = set(self.get_mountain_peak_indexes(peaks_len))
 
-        # From the digest_op's index, climb the tree until we intersect one of the target tips
+        # From the digest_op's index, climb the mountain until we intersect one
+        # of the target peaks
         path = []
-        while op_idx not in target_tips:
-            op_idx = self.tip_child(op_idx)
+        while op_idx not in target_peaks:
+            op_idx = self.peak_child(op_idx)
             path.append(self[op_idx])
 
-        # Extend that path with the merkle tree of those tips.
-        path.extend(self.get_merkle_tip(tips_len))
+        # Extend that path with the merkle tree of those peaks.
+        path.extend(self.get_merkle_peak(peaks_len))
 
         # FIXME: we probably should prune that path; not all those ops are required.
 

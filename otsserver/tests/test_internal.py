@@ -15,8 +15,14 @@ import sys
 import tempfile
 import time
 import unittest
+import uuid
 
-from .._internal import FileAlreadyLockedError,lockf_manager,shared_lockf,exclusive_lockf
+from .._internal import \
+    FileAlreadyLockedError,\
+    lockf_manager,shared_lockf,exclusive_lockf,\
+    AppendOnlyArchiveError,AppendOnlyArchiveCorruptionError,AppendOnlyArchiveRecordTooLongError,\
+    AppendOnlyArchive
+
 
 class test_lockf_manager(unittest.TestCase):
     def setUp(self):
@@ -92,3 +98,89 @@ class test_lockf_manager(unittest.TestCase):
                     time.sleep(0.1)
                     os._exit(0)
 
+class SpamArchive(AppendOnlyArchive):
+    header_magic_uuid = uuid.uuid4()
+    header_magic_text = b'SpamArchive'
+    major_version = 1
+    minor_version = 0
+    header_struct_format = 'L'
+    header_field_names = ('nigerians',)
+    header_length = 128
+
+    def __init__(self,filename,nigerians=0,**kwargs):
+        self.nigerians = nigerians
+        super().__init__(filename,b'eggs',**kwargs)
+
+
+class Test_AppendOnlyArchive(unittest.TestCase):
+    def setUp(self):
+        self.tmpfilename = tempfile.mktemp()
+
+    def tearDown(self):
+        os.unlink(self.tmpfilename)
+
+    def test_noclobber(self):
+        spamarc = SpamArchive(self.tmpfilename,create=True)
+        with self.assertRaises(IOError):
+            spamarc = SpamArchive(self.tmpfilename,create=True)
+
+    def test_basics(self):
+        spamarc = SpamArchive(self.tmpfilename,create=True,nigerians=42)
+
+        spams = (b'career singles',b'get results now',b'meet someone special',b'fire your boss')
+        idxs = [spamarc.add(spam) for spam in spams]
+
+        for (spam,idx) in zip(spams,idxs):
+            self.assertEqual(spamarc[idx],spam)
+
+        spamarc = SpamArchive(self.tmpfilename,create=False)
+        self.assertEqual(spamarc.nigerians,42)
+        for (spam,idx) in zip(spams,idxs):
+            self.assertEqual(spamarc[idx],spam)
+
+    def test_locking(self):
+        # FIXME
+        spamarc = SpamArchive(self.tmpfilename,create=True)
+
+    def test_corruption_handling(self):
+        spamarc = SpamArchive(self.tmpfilename,create=True)
+
+        spams = (b'you have won',b'amazing new discovery',b'doctor approved',b'privacy assured',b'venture capital')
+        idxs = [spamarc.add(spam) for spam in spams]
+
+        with open(self.tmpfilename,'rb+') as cfd:
+            # corrupt delimiter
+            cfd.seek(idxs[0],os.SEEK_SET)
+            cfd.write(b'\xFF'*4)
+            cfd.flush()
+
+            with self.assertRaises(AppendOnlyArchiveCorruptionError):
+                spamarc[idxs[0]]
+
+            # corrupt crc32
+            cfd.seek(idxs[1]+4+1,os.SEEK_SET)
+            cfd.write(b'\xFF')
+            cfd.flush()
+            with self.assertRaises(AppendOnlyArchiveCorruptionError):
+                spamarc[idxs[1]]
+
+            # corrupt offset
+            cfd.seek(idxs[2]+4+1+4,os.SEEK_SET)
+            cfd.write(b'\xFF')
+            cfd.flush()
+            with self.assertRaises(AppendOnlyArchiveCorruptionError):
+                spamarc[idxs[2]]
+
+            # corrupt length
+            cfd.seek(idxs[3]+4+1+4+8,os.SEEK_SET)
+            cfd.write(b'\xFF')
+            cfd.flush()
+            with self.assertRaises(AppendOnlyArchiveCorruptionError):
+                spamarc[idxs[3]]
+
+            # corrupt data
+            cfd.seek(idxs[4]+4+1+4+8+8,os.SEEK_SET)
+            cfd.write(b'\xFF')
+            cfd.flush()
+            with self.assertRaises(AppendOnlyArchiveCorruptionError):
+                spamarc[idxs[4]]

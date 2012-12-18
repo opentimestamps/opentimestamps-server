@@ -14,10 +14,10 @@ import json
 import logging
 import traceback
 
+from opentimestamps._internal import hexlify,unhexlify
+
 from opentimestamps import implementation_identifier as client_implementation_id
-from opentimestamps.dag import *
-from opentimestamps.serialization import *
-from opentimestamps.notary import *
+from opentimestamps.dag import Hash
 
 from . import implementation_identifier as server_implementation_id
 
@@ -33,7 +33,7 @@ class WsgiInterface:
     _rpc_major_version = 1
     _rpc_minor_version = 0
 
-    _sourcecode_url = 'https://github.com/petertodd/opentimestamps-server.git'
+    _sourcecode_url = 'https://github.com/opentimestamps/opentimestamps-server.git'
 
     def __init__(self,calendar=None):
         assert calendar is not None
@@ -72,8 +72,7 @@ class WsgiInterface:
 
         fn = dispatch()
         if fn is not None:
-            args = [json_deserialize(json.loads(unquote_plus(arg))) for arg in path[1:]]
-            kwargs = {k:json_deserialize(json.loads(v)) for k,v in kwargs.items()}
+            args = path[1:]
 
             try:
                 fn_ret = dispatch()(*args,**kwargs)
@@ -83,16 +82,16 @@ class WsgiInterface:
 
                 response_headers = [('Content-Type','text/plain')]
                 start_response('500 Internal Server Error',response_headers)
-                
+
                 tb_file.seek(0)
                 r = tb_file.read()
                 tb_file.close()
-                return [bytes(r,'utf8')] 
+                return [bytes(r,'utf8')]
             else:
                 response_headers = [('Content-Type','application/json; charset=utf-8')]
                 start_response('200 OK',response_headers)
-                r = json.dumps(json_serialize(fn_ret),indent=4)
-                return [bytes(r,'utf8')] 
+                r = json.dumps(fn_ret, indent=4)
+                return [bytes(r,'utf8')]
         else:
             status = '404 NOT FOUND'
             response_headers = [('Content-Type','text/plain')]
@@ -132,28 +131,7 @@ class WsgiInterface:
                 r.append((str(cmd),str(doctext)))
         return r
 
-    def get_merkle_tip(self):
-        """Return a list of operations that will create a merkle tip of the whole calendar.
-
-        Sign the last operation in this list with your signature and return the
-        list, and your new signature, to the server via the post_verification
-        method.
-        """
-        return self.calendar.get_merkle_tip()
-
-    def post_verification(self,ops=None):
-        """Add a new verification.
-
-        ops should be a list of operations comprising the verification. The
-        server will determine if the operations can be incorporated into the
-        calendar.
-        """
-        for op in ops:
-            if not isinstance(op,Op):
-                raise Exception('expected Op, not %r' % op.__class__)
-        return self.calendar.add_verification(ops)
-
-    def post_digest(self,op=None):
+    def post_digest(self, digest=None):
         """Add a digest to the calendar.
 
         Returns a list of operations that collectively form a path between the
@@ -164,18 +142,16 @@ class WsgiInterface:
         canonical url. Potentially more than one returned operation will have
         metadata set.
         """
-        if not isinstance(op,Op):
-            raise Exception('expected Op, not %r' % op.__class__)
-        return self.calendar.submit(op)
+        digest = unhexlify(digest)
+        ops = self.calendar.submit(digest)
+        return [op.to_primitives() for op in ops]
 
-    def get_path(self,op=None,notary_spec=None):
-        """Find a path between an operation and a signature from the specified notary.
 
-        Returns a list of operations that form paths to one or more
-        verification operation with a signature by the specified notary.
+    def get_path(self, digest, notary_spec):
+        """Find a path between a digest and a signature from the specified notary."""
+        digest = unhexlify(digest)
+        (ops, sigs) = self.calendar.path(digest, notary_spec)
 
-        The order of the list is undefined.
-        """
-        assert op is not None
-        assert notary_spec is not None
-        return self.calendar.path(op,notary_spec)
+        ops = [op.to_primitives() for op in ops]
+        sigs = [sig.to_primitives() for sig in sigs]
+        return (ops,sigs)

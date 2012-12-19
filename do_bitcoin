@@ -99,10 +99,13 @@ for pending in os.listdir('{}/calendar/pending'.format(args.data)):
             pend_info = json.load(pend_fd)
 
             # FIXME: the hard coded vout isn't ideal
-            txout_info = proxy.gettxout(hexlify(pending), 0)
+            pending_raw_tx = proxy.getrawtransaction(hexlify(pending), 1)
 
-            if txout_info['confirmations'] >= MIN_CONFIRMATIONS:
-                block_num = proxy.getblockcount() - txout_info['confirmations'] + 1
+            if pending_raw_tx.get('confirmations',0) >= MIN_CONFIRMATIONS:
+                logging.info('Timestamp tx {} has >= {} confirmations'\
+                        .format(hexlify(pending), MIN_CONFIRMATIONS))
+
+                block_num = proxy.getblockcount() - pending_raw_tx['confirmations'] + 1
                 block_hash = proxy.getblockhash(block_num)
 
                 digests = [unhexlify(digest) for digest in pend_info['digests']]

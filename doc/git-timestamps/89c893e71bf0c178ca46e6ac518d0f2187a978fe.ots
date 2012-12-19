@@ -1,0 +1,264 @@
+{
+    "signatures": [
+        {
+            "bitcoin": {
+                "digest": "010000003d166cf6ab6b9ff00533a605c7106e802ef511ee68a94dbc8c04000000000000d76054684999891bea0a1bc669d122c9644b8a85ce350c01e8e306f8db6b34baf673d15062fa041a403274a3", 
+                "identity": "mainnet"
+            }
+        }
+    ], 
+    "digests": {
+        "none": "89c893e71bf0c178ca46e6ac518d0f2187a978fe"
+    }, 
+    "ops": [
+        {
+            "Hash": {
+                "input": "3ea4bc89e92b4178e073b1eff622245c169f00704a603ec3f5046732ec8c9b10fb970f5e32568510bcdf3fa54343b9a965dcbaa7972388ded133830327d3131c", 
+                "parents": [
+                    [
+                        0, 
+                        32
+                    ], 
+                    [
+                        32, 
+                        32
+                    ]
+                ], 
+                "algorithm": "sha256d", 
+                "digest": "58ca3b41757272a7d8d002d75eea92cb25c4a3ac8a17ebc12a5decb0d34c862b", 
+                "metadata": {}
+            }
+        }, 
+        {
+            "Hash": {
+                "input": "0c3a7975afc6cc311cf650018732390521010b7473f386a407fc466373f082841bf8095a4f656492b10b515d059f88b47e2eda6afd76a80dd067247a8594c7bb", 
+                "parents": [
+                    [
+                        0, 
+                        32
+                    ], 
+                    [
+                        32, 
+                        32
+                    ]
+                ], 
+                "algorithm": "sha256d", 
+                "digest": "1635afa490b186735a61f7f7ebedb364a304bb2e07832a069eabf3786283b086", 
+                "metadata": {}
+            }
+        }, 
+        {
+            "Hash": {
+                "input": "aa2e8b491f9bd1391f1a3e5c94d7e47274d20de7db82718c85590a9be30a811289c593e89460ddbbad84ba96a4192cb273431c58e3f173669cdc387c6a10f873", 
+                "parents": [
+                    [
+                        32, 
+                        32
+                    ], 
+                    [
+                        0, 
+                        32
+                    ]
+                ], 
+                "algorithm": "sha256d", 
+                "digest": "d76054684999891bea0a1bc669d122c9644b8a85ce350c01e8e306f8db6b34ba", 
+                "metadata": {}
+            }
+        }, 
+        {
+            "Hash": {
+                "input": "596b115d19e7b84ff156b58872ed1ac0fd468c93a83028a5922d9797100db7be53931afaa6d2e2b703142265a6554a81603049c2c1f2ef73ec854f32c20554b3", 
+                "parents": [
+                    [
+                        32, 
+                        32
+                    ], 
+                    [
+                        0, 
+                        32
+                    ]
+                ], 
+                "algorithm": "sha256d", 
+                "digest": "3ea4bc89e92b4178e073b1eff622245c169f00704a603ec3f5046732ec8c9b10", 
+                "metadata": {}
+            }
+        }, 
+        {
+            "Hash": {
+                "input": "58ca3b41757272a7d8d002d75eea92cb25c4a3ac8a17ebc12a5decb0d34c862b1a076a38e27f2c169197684805cb44be4456b5ac6e112c5b88bc1b62d65c9439", 
+                "parents": [
+                    [
+                        0, 
+                        32
+                    ], 
+                    [
+                        32, 
+                        32
+                    ]
+                ], 
+                "algorithm": "sha256d", 
+                "digest": "e6706381bd5dfbe995823d373f2bdba286999aee539eae90308dd60d8c0191f9", 
+                "metadata": {}
+            }
+        }, 
+        {
+            "Hash": {
+                "input": "6136a880c0774117faa2bfbba97d22f93bb3aca2e7ea630a39415b6de4616e937588c20a950d723b0bc4d99524a099e7d0ce78c32baaae77fed56618c13cc7f6", 
+                "parents": [
+                    [
+                        0, 
+                        32
+                    ], 
+                    [
+                        32, 
+                        32
+                    ]
+                ], 
+                "algorithm": "sha256d", 
+                "digest": "5c9248195fdef144412bb489961ccf7c61ff857c2ce365a2561618cd920410c7", 
+                "metadata": {}
+            }
+        }, 
+        {
+            "Hash": {
+                "input": "3cb82dbf07026639821ecd51577008d35601d4ac346ff5eaa6208d7a741c444844ecfa6c7a9ecf480da90bad975e0b1642657a1222fa7549fdb4a45e061e842f", 
+                "parents": [
+                    [
+                        0, 
+                        32
+                    ], 
+                    [
+                        32, 
+                        32
+                    ]
+                ], 
+                "algorithm": "sha256d", 
+                "digest": "596b115d19e7b84ff156b58872ed1ac0fd468c93a83028a5922d9797100db7be", 
+                "metadata": {}
+            }
+        }, 
+        {
+            "Hash": {
+                "input": "89c893e71bf0c178ca46e6ac518d0f2187a978fedb8a573399e2041a3ad9276fc7c5126c050169c2e450b749f28041995487e8c1", 
+                "parents": [
+                    [
+                        0, 
+                        20
+                    ]
+                ], 
+                "algorithm": "sha256d", 
+                "digest": "0c3a7975afc6cc311cf650018732390521010b7473f386a407fc466373f08284", 
+                "metadata": {
+                    "http://localhost:2302": {}
+                }
+            }
+        }, 
+        {
+            "Hash": {
+                "input": "f86bccd094b9fe7f57844725052589b200f9adff0ed4b937a354b78fe539eb8be6706381bd5dfbe995823d373f2bdba286999aee539eae90308dd60d8c0191f9", 
+                "parents": [
+                    [
+                        32, 
+                        32
+                    ], 
+                    [
+                        0, 
+                        32
+                    ]
+                ], 
+                "algorithm": "sha256d", 
+                "digest": "edbc9182d9ea1e3f2174e3e2195c700dd8c302a15f1a2c00cfa7ec9caf3c35e2", 
+                "metadata": {}
+            }
+        }, 
+        {
+            "Hash": {
+                "input": "01000000010ee624dc7f10a4f88dc154cbe8ab5102e2142eff4d0e977ac24cb0f2f52c45eb000000004b00493046022100e07537821def0cdc45ec5bb5d432f268f59e4e082b264ae3b208d517d2a951d3022100b1b87fe483760123925b9e8e32eb3621f9ecce8cdd45f3298176e7f1817857b101ffffffff01e058161000000000475121037953dbf08030f67352134992643d033417eaa6fcfb770c038f364ff40d76158821001635afa490b186735a61f7f7ebedb364a304bb2e07832a069eabf3786283b08652ae00000000", 
+                "parents": [
+                    [
+                        0, 
+                        168
+                    ], 
+                    [
+                        200, 
+                        6
+                    ], 
+                    [
+                        168, 
+                        32
+                    ]
+                ], 
+                "algorithm": "sha256d", 
+                "digest": "3cb82dbf07026639821ecd51577008d35601d4ac346ff5eaa6208d7a741c4448", 
+                "metadata": {}
+            }
+        }, 
+        {
+            "Hash": {
+                "input": "d92310e137e09ed0091de1d112309d2a9648b5ea1d51df2ed4e674bac9df7cbeedbc9182d9ea1e3f2174e3e2195c700dd8c302a15f1a2c00cfa7ec9caf3c35e2", 
+                "parents": [
+                    [
+                        32, 
+                        32
+                    ], 
+                    [
+                        0, 
+                        32
+                    ]
+                ], 
+                "algorithm": "sha256d", 
+                "digest": "6136a880c0774117faa2bfbba97d22f93bb3aca2e7ea630a39415b6de4616e93", 
+                "metadata": {}
+            }
+        }, 
+        {
+            "Digest": {
+                "input": "010000003d166cf6ab6b9ff00533a605c7106e802ef511ee68a94dbc8c04000000000000d76054684999891bea0a1bc669d122c9644b8a85ce350c01e8e306f8db6b34baf673d15062fa041a403274a3", 
+                "parents": [
+                    [
+                        36, 
+                        32
+                    ]
+                ], 
+                "digest": "010000003d166cf6ab6b9ff00533a605c7106e802ef511ee68a94dbc8c04000000000000d76054684999891bea0a1bc669d122c9644b8a85ce350c01e8e306f8db6b34baf673d15062fa041a403274a3", 
+                "metadata": {}
+            }
+        }, 
+        {
+            "Hash": {
+                "input": "5c9248195fdef144412bb489961ccf7c61ff857c2ce365a2561618cd920410c7c22aeb74ead8562c52d341c4868854cd9218d0a6adbbf8ffcd0eb42d13b0746e", 
+                "parents": [
+                    [
+                        32, 
+                        32
+                    ], 
+                    [
+                        0, 
+                        32
+                    ]
+                ], 
+                "algorithm": "sha256d", 
+                "digest": "ee3bbacd2abbd7405a145870d57d539be88719753b2ed6046a0aea33c29fe1ce", 
+                "metadata": {}
+            }
+        }, 
+        {
+            "Hash": {
+                "input": "ee3bbacd2abbd7405a145870d57d539be88719753b2ed6046a0aea33c29fe1ce69e2f269350a668b4ca929cf800438043a3888933e7ab721e1da3c98f1bed90d", 
+                "parents": [
+                    [
+                        32, 
+                        32
+                    ], 
+                    [
+                        0, 
+                        32
+                    ]
+                ], 
+                "algorithm": "sha256d", 
+                "digest": "aa2e8b491f9bd1391f1a3e5c94d7e47274d20de7db82718c85590a9be30a8112", 
+                "metadata": {}
+            }
+        }
+    ]
+}

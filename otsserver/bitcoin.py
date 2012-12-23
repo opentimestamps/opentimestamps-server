@@ -69,7 +69,7 @@ class BitcoinCalendar:
 
 
 def create_checkmultisig_tx(tx_in, m, value, pubkeys, proxy):
-    assert 0 < m < len(pubkeys) <= 16
+    assert 0 < m <= len(pubkeys) <= 16
 
     pubkeys = [unhexlify(pubkey) for pubkey in pubkeys]
 

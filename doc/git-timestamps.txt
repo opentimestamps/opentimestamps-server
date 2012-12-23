@@ -1,0 +1,122 @@
+So, lets say that Alice want to timestamp something in a git revision
+control system. The easiest thing to do is just create a timestamp of
+the revision, which in a decent revision control system is a
+cryptographic hash. For instance the attached file timestamps v0.1 of my
+OpenTimestamps client.
+
+Now suppose she wants to take that timestamp and prove the existence of
+a particular file. She could direct Bob to run git checkout and so on,
+but that's inefficient, and Bob might not know how to use git. So
+instead she can walk through git's internal storage format. For the
+attached timestamp the digest being verified, 13249541(snip), happens to
+correspond to this data:
+
+    tree 63f4d967b439c8d137e8297db82d6a998a922abb
+    parent 1175eea99a783a814d6d59672cdc100d2a81e94e
+    author Peter Todd <pete@petertodd.org> 1350292468 -0400
+    committer Peter Todd <pete@petertodd.org> 1350292974 -0400
+
+    Version 0.1
+
+The tree digest refers to the top level tree structure:
+
+    100644 blob f24cd9952da6568ccae31e4d333551ade6907553    .gitignore
+    100644 blob 4165418d146712fb294cb39d94e7c28b2d26055b    LICENSE
+    100644 blob 7f9a0039dc05e242654f871cd2993da10941267a    README.md
+    040000 tree 9fe8cbd4f54505825c846994112c50f8c6936cf2    opentimestamps
+    100755 blob 399c30415e5bd5aa1f24a9b28f9a25d5928f357b    ots
+
+Alice can repeat that until she finally drills down to the actual
+content she want to prove. To create the timestamp proving that content,
+she constructs a series of secure operations adding the various missing
+bits to arrive at the top level digest. The current OpenTimestamps code
+can represent such a timestamp, however there is a problem: it's
+inefficient. In particular the operations required to prove that the
+"blob" (file) "ots" corresponding to digest
+399c30415e5bd5aa1f24a9b28f9a25d5928f357b have to repeat the entire tree
+data for every directory to the top. If there are a lot of files in the
+directories this will be a heck of a lot of data.
+
+In addition, what happens if Alice is only trying to prove *part* of the
+file? For instance, she might have a log file with millions of lines of
+logs, but only wants to prove the existence of the last five.
+
+Instead of using a direct hash algorithm, she can use an incremental
+version. My Merkle Mountain Range algorithm qualifies if you use it on
+byte sized chunks. (incidentally, come to think of it "incremental
+hashing algorithm" might be term used in the literature to describe that
+algorithm) The proof for the last lines of that log file just needs to
+include the digests of the missing merkle leaves, and equally for the
+git tree data Alice can provide enough of the full merkle tree to verify
+the range of bytes for the entry in question.
+
+
+However, what if the rest of the repository is private? For instance
+this email will be saved in my mail archives which is a big git repo. I
+might want to, say, prove to a patent court that I had the above idea,
+but I don't want to have to give the court any information at all about
+the rest of my email archive, or maybe even about the rest of this
+email.
+
+Partial parts of files however open up all sorts of subtle problems...
+for instance even if Alice uses a hash function with some sort of nonced
+construction it's hard to avoid giving away information about the length
+of the file, or the relative positions of different parts, because Bob
+can now simply walk back up the tree and note how many levels it takes
+to get to a common digest. Conceptually what you want to do is add
+padding to the file, but rather than the usual case where the padding is
+added to the end, you need to add padding to every single byte.
+Basically for byte n of the message, we want the resulting hash tree to
+be as though n was followed by some number of random bytes of "nothing".
+The digest of nothing hashed is easy to define: whereas for byte 0x10
+the digest is just H(0x10) for a nothing byte the hash is H() With
+memoization Alice can also calculate the merkle tree tip digest of any
+length of nothing - for instance the sha256 digest of the merkle tree
+tip of 2^64 bytes of nothing is
+6bcca87ac86a4abe4e1978da55b8575e8abb49208208d18f2bcbbe087fb97917
+
+Alice can use this technique by generating a nonce n_0. For each byte of
+the message, m_0...m_n, she calculates n_i = H(m_i + n_i-1) and inserts
+m bytes of nothing padding into the stream where m is derived from n_i
+to produce a random number in some range; a derivation function
+consisting of just using some number of bits of n_i is probably fine for
+most uses. (Alice needs to prepend the stream with random padding as
+well) To regenerate the merkle tip all Alice needs is the range of the
+random derivation function, the nonce she picked and the original data.
+Similarly if she wants to prove to Bob only the existance of a partial
+fragment she can supply the value of n_i at the beginning of the
+fragment, and the missing merkle leaves.
+
+If the merkle path length from the tip for a given fragment is l and the
+maximum length of padding is M Bob can reason that there was somewhere
+between 2^l and 2^l+M bytes of actual message prior to the fragment.
+Similarly Bob can reason about how much message was after the fragment
+in a similar way.
+
+Because adding extremely large amounts of padding is cheap it is
+feasible to bury that signal in enormous amounts of noise. At the same
+time if providing the whole message is desired Alice can simply provide
+the nonce by itself; the proof isn't any longer than a traditional
+digest+nonce system. Calculating the proof will be more expensive of
+course, but only by a constant factor over the non-nonced algorithm. Now
+note that Bob will in many cases be able to figure out that he only has
+a partial message, or at least determine that it was possible for Alice
+to only provide a partial message.
+
+To apply this technique to a tree-like structure, like a git repository,
+has one interesting challenge though: it is much harder to avoid giving
+Bob about the depth of the message fragment in the tree. In that case
+Alice can take a "holistic" view of the padding such that the whole tree
+is assigned some maximum path-length budget and successively deeper
+parts of the tree have smaller maximum padding lengths, thus as a whole
+giving a constant tree depth and no statistical information.
+Combinations of really deep trees, and very large files, require longer
+maximum path lengths. Still for many purposes just adding an extra 1 or
+2 bits of padding is probably fine, and still cheap.
+
+Of course, actually computing the padding as though it was really
+consumed, even with memoization, is probably unneeded. It sufficies to
+just add some randomly chosen extra steps in the path proportional to
+how many would have been added for m bytes, but explaining it as though
+it were actual padding makes it clear as to why the technique denies Bob
+knowledge about the message length.

@@ -1,3 +1,8 @@
+Is it possible to create a https page download that saves enough header etc.
+info to later prove the page contents were signed by the key? May be depending
+on how the symmetric encryption is implemented.
+
+
 * Calendars
 
 BitTorrent for calendar downloads
@@ -9,23 +14,6 @@ the tips be decentralized in itself? Thought experiment: take one tips
 calendar, make a copy of it, update each independently. Is there a sane way to
 merge the two together again? May be helpful for running distributed server
 farms for instance.
-
-* Serialization
-
-Naming convention:
-
-d_foo - read as digest input foo
-
-Have one class for anything that either has a digest, or contributes to one.
-Default behavior of this class would be to take all the attributes, serialize
-them, and call that the digest. Hash is then a special case; Verify is not a
-special case. Digest is still a special case I guess; could have d_digest...
-
-** Compression
-
-On serialization create a stack of all intermediate bytes created, namely from
-digests, and replace them with relative stack indexes.
-
 
 * Notaries
 

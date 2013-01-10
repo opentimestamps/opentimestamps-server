@@ -1,0 +1,11 @@
+NTP can be used in authenticated mode, however that puts load on the central,
+secure server, because each client has a separate session secured by symmetric
+crypto.
+
+However, if the client uses a nonce, and has that nonce timestamped, the nonce
+can travel up progressive levels of merkle trees to one or more central
+servers. The client then checks that timestamp and knows what time it is.
+rfc3161 is a good candidate for the actual signatures, because it leveraging
+the ssl certificate authorities in a simple to validate way.
+
+TODO: ots ntp-like date setter/ ntp validation layer

@@ -46,10 +46,10 @@ digest submitted:
     /\/\/\/\/\/\/\
 
 We've created a list of the peaks of each mountain, and in turn created a
-merkle tree from that. For obscure reaons this operation is referred to as
+merkle tree from that. For obscure reasons this operation is referred to as
 bagging the peaks. A notary can now create a signature verifying the resulting
 digest. The process can be completely deterministic, producing the exact same
-digest every time provided you have every base digest, and their order. If
+digest every time provided you have every base digest and their order. By
 knowing the number of digests in a given mountain range you can always
 efficiently reproduce the peak enclosing the mountain whole range at that point
 in time. At the same time every signature will always sign every digest in the

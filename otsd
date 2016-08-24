@@ -15,6 +15,11 @@ sys.path.insert(1, sys.path[0] + '/python-opentimestamps/')
 
 import argparse
 import logging
+import os
+import queue
+
+import otsserver.calendar
+import otsserver.rpc
 
 parser = argparse.ArgumentParser(description="OpenTimestamps Server")
 
@@ -22,6 +27,10 @@ parser.add_argument("-q", "--quiet", action="count", default=0,
                     help="Be more quiet.")
 parser.add_argument("-v", "--verbose", action="count", default=0,
                     help="Be more verbose. Both -v and -q may be used multiple times.")
+parser.add_argument("-c", "--calendar", type=str,
+                    dest='calendar_path',
+                    default='~/.otsd/calendar/',
+                    help="Location of the calendar")
 
 args = parser.parse_args()
 args.parser = parser
@@ -37,5 +46,13 @@ elif args.verbosity == -1:
     logging.root.setLevel(logging.WARNING)
 elif args.verbosity < -1:
     logging.root.setLevel(logging.ERROR)
+
+calendar_path = os.path.expanduser(args.calendar_path)
+
+calendar = otsserver.calendar.Calendar(calendar_path)
+aggregator = otsserver.calendar.Aggregator(calendar)
+
+server = otsserver.rpc.StampServer(('', 14788), aggregator)
+server.serve_forever()
 
 # vim:syntax=python filetype=python

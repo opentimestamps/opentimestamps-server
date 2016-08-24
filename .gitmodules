@@ -1,3 +1,0 @@
-[submodule "client"]
-	path = client
-	url = ../opentimestamps-client.git

@@ -16,8 +16,8 @@ import struct
 import threading
 import time
 
-from opentimestamps.core.op import OpPrepend, OpAppend, OpSHA256
-from opentimestamps.op import make_merkle_tree
+from opentimestamps.core.timestamp import OpPrepend, OpAppend, OpSHA256, OpVerify
+from opentimestamps.timestamp import make_merkle_tree
 from opentimestamps.core.notary import PendingAttestation
 from opentimestamps.core.timestamp import Timestamp
 
@@ -27,12 +27,13 @@ class Calendar:
     def __init__(self, path):
         self.path = path
 
-    def submit(self, commitment_op):
+    def submit(self, commitment):
         serialized_time = struct.pack('>L', int(time.time()))
-        commitment_op2 = OpPrepend(serialized_time, commitment_op)
-        commitment_op.next_op = commitment_op2
 
-        with open(self.path + '/pending/' + b2x(bytes(commitment_op2)),'xb') as fd:
+        final_timestamp = commitment.add_op(OpPrepend, serialized_time).timestamp
+        final_timestamp.add_op(OpVerify, PendingAttestation(b"fixme"))
+
+        with open(self.path + '/pending/' + b2x(bytes(final_timestamp.msg)),'xb') as fd:
             os.fsync(fd.fileno())
 
 class Aggregator:
@@ -44,24 +45,24 @@ class Aggregator:
         while True:
             time.sleep(self.commitment_interval)
 
-            digest_ops = []
+            digests = []
             done_events = []
             last_commitment = time.time()
             while not self.digest_queue.empty():
                 # This should never raise the Empty exception, as we should be
                 # the only thread taking items off the queue
-                (digest_op, done_event) = self.digest_queue.get_nowait()
-                digest_ops.append(digest_op)
+                (digest, done_event) = self.digest_queue.get_nowait()
+                digests.append(digest)
                 done_events.append(done_event)
 
-            if not len(digest_ops):
+            if not len(digests):
                 continue
 
-            commitment_op = make_merkle_tree(digest_ops)
+            digests_commitment = make_merkle_tree(digests)
 
-            logging.info("Aggregated %d digests under committment %s" % (len(digest_ops), b2x(bytes(commitment_op))))
+            logging.info("Aggregated %d digests under committment %s" % (len(digests), b2x(digests_commitment.msg)))
 
-            self.calendar.submit(commitment_op)
+            self.calendar.submit(digests_commitment)
 
             # Notify all requestors that the commitment is done
             for done_event in done_events:
@@ -84,13 +85,12 @@ class Aggregator:
         # messages being committed at the same time, as well as to ensure that
         # anything we store related to this committment can't be controlled by
         # them.
-        nonced_msg_op = OpAppend(msg, os.urandom(self.NONCE_LENGTH))
-        commit_op = OpSHA256(nonced_msg_op)
-        nonced_msg_op.next_op = commit_op
+        timestamp = Timestamp(msg)
+        nonced_timestamp = timestamp.add_op(OpAppend, os.urandom(self.NONCE_LENGTH)).timestamp.add_op(OpSHA256).timestamp
 
         done_event = threading.Event()
-        self.digest_queue.put((commit_op, done_event))
+        self.digest_queue.put((nonced_timestamp, done_event))
 
         done_event.wait()
 
-        return Timestamp(nonced_msg_op, PendingAttestation(b"deadbeef"))
+        return timestamp

@@ -15,7 +15,6 @@ import socketserver
 import threading
 import time
 
-from opentimestamps.core.op import OpAppend, OpSHA256
 from opentimestamps.core.serialize import StreamSerializationContext
 
 class RPCRequestHandler(http.server.BaseHTTPRequestHandler):

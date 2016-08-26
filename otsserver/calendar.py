@@ -23,18 +23,58 @@ from opentimestamps.core.timestamp import Timestamp
 
 from bitcoin.core import b2x
 
+class Journal:
+    """Append-only commitment storage
+
+    The journal exists simply to make sure we never lose a commitment.
+    """
+    COMMITMENT_SIZE = 32 + 4
+
+    def __init__(self, path):
+        self.read_fd = open(path, "rb")
+
+class JournalWriter(Journal):
+    """Writer for the journal"""
+    def __init__(self, path):
+        self.append_fd = open(path, "ab")
+
+        # In case a previous write partially failed, seek to a multiple of the
+        # commitment size
+        logging.info("Opening journal for appending...")
+        pos = self.append_fd.tell()
+
+        if pos % self.COMMITMENT_SIZE:
+            logging.error("Journal size not a multiple of commitment size; %d bytes excess; writing padding" % (pos % self.COMMITMENT_SIZE))
+            self.append_fd.write(b'\x00'*(self.COMMITMENT_SIZE - (pos % self.COMMITMENT_SIZE)))
+
+        logging.info("Journal has %d entries" % (self.append_fd.tell() // self.COMMITMENT_SIZE))
+
+    def submit(self, commitment):
+        """Add a new commitment to the journal
+
+        Returns only after the commitment is syncronized to disk.
+        """
+        if len(commitment) != self.COMMITMENT_SIZE:
+            raise ValueError("Journal commitments must be exactly %d bytes long" % self.COMMITMENT_SIZE)
+
+        assert (self.append_fd.tell() % self.COMMITMENT_SIZE) == 0
+        self.append_fd.write(commitment)
+        self.append_fd.flush()
+        os.fsync(self.append_fd.fileno())
+
+
 class Calendar:
     def __init__(self, path):
         self.path = path
+        self.journal = JournalWriter(path + '/journal')
 
-    def submit(self, commitment):
+    def submit(self, submitted_commitment):
         serialized_time = struct.pack('>L', int(time.time()))
 
-        final_timestamp = commitment.add_op(OpPrepend, serialized_time).timestamp
-        final_timestamp.add_op(OpVerify, PendingAttestation(b"fixme"))
+        commitment = submitted_commitment.add_op(OpPrepend, serialized_time).timestamp
+        commitment.add_op(OpVerify, PendingAttestation(b"fixme"))
 
-        with open(self.path + '/pending/' + b2x(bytes(final_timestamp.msg)),'xb') as fd:
-            os.fsync(fd.fileno())
+        self.journal.submit(commitment.msg)
 
 class Aggregator:
     def __loop(self):

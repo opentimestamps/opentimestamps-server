@@ -17,7 +17,7 @@ import threading
 import time
 
 from opentimestamps.core.timestamp import OpPrepend, OpAppend, OpSHA256, OpVerify
-from opentimestamps.timestamp import make_merkle_tree
+from opentimestamps.timestamp import make_merkle_tree, nonce_timestamp
 from opentimestamps.core.notary import PendingAttestation
 from opentimestamps.core.timestamp import Timestamp
 
@@ -37,9 +37,6 @@ class Calendar:
             os.fsync(fd.fileno())
 
 class Aggregator:
-    NONCE_LENGTH = 16
-    """Length of nonce added to submitted messages"""
-
     def __loop(self):
         logging.info("Starting aggregator loop")
         while True:
@@ -81,15 +78,14 @@ class Aggregator:
         Aggregator thread will aggregate the message along with all other
         messages, and return a Timestamp
         """
+        timestamp = Timestamp(msg)
+
         # Add nonce to ensure requestor doesn't learn anything about other
         # messages being committed at the same time, as well as to ensure that
         # anything we store related to this committment can't be controlled by
         # them.
-        timestamp = Timestamp(msg)
-        nonced_timestamp = timestamp.add_op(OpAppend, os.urandom(self.NONCE_LENGTH)).timestamp.add_op(OpSHA256).timestamp
-
         done_event = threading.Event()
-        self.digest_queue.put((nonced_timestamp, done_event))
+        self.digest_queue.put((nonce_timestamp(timestamp), done_event))
 
         done_event.wait()
 

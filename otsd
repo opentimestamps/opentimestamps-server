@@ -42,6 +42,12 @@ parser.add_argument("--btc-min-relay-feerate", metavar='FEEPERKB', type=float,
 parser.add_argument("--btc-min-confirmations", metavar='N', type=int,
                     default=6,
                     help="Confirmations required before we save a Bitcoin timestamp permanently")
+parser.add_argument("--btc-min-tx-interval", metavar='SECS', type=int,
+                    default=600,
+                    help="Minimum interval between timestamp transactions")
+parser.add_argument("--btc-max-fee", metavar='FEE', type=float,
+                    default=0.001,
+                    help="Maximum fee per timestamp transaction")
 
 btc_net_group  = parser.add_mutually_exclusive_group()
 btc_net_group.add_argument('--btc-testnet', dest='btc_net', action='store_const',
@@ -79,7 +85,9 @@ aggregator = otsserver.calendar.Aggregator(calendar)
 
 stamper = otsserver.stamper.Stamper(calendar,
                                     args.btc_min_relay_feerate / 1000 * bitcoin.core.COIN,
-                                    args.btc_min_confirmations)
+                                    args.btc_min_confirmations,
+                                    args.btc_min_tx_interval,
+                                    args.btc_max_fee * bitcoin.core.COIN)
 
 server = otsserver.rpc.StampServer(('', 14788), aggregator, calendar)
 server.serve_forever()

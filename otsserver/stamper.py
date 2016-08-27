@@ -53,7 +53,7 @@ class KnownBlocks:
                 # rollback!
                 pass
 
-            logging.info("Reorg detected, rolling back one block")
+            logging.info("Reorg detected at height %d, rolling back block %s" % (self.__blocks[-1].height, b2lx(self.__blocks[-1].hash)))
             self.__blocks.pop(-1)
 
 
@@ -68,14 +68,31 @@ class KnownBlocks:
 
             height = self.__blocks[-1].height + 1 if self.__blocks else proxy.getblockcount()
 
-            # FIXME: note how this can in fact fail, as not atomic w/ above
-            hash = proxy.getblockhash(height)
+            try:
+                hash = proxy.getblockhash(height)
+            except IndexError:
+                continue
 
             self.__blocks.append(KnownBlock(height, hash))
             r.append(self.__blocks[-1])
 
         return r
 
+def _get_tx_fee(tx, proxy):
+    """Calculate tx fee
+
+    Assumes inputs are confirmed
+    """
+    value_in = 0
+    for txin in tx.vin:
+        try:
+            r = proxy.gettxout(txin.prevout, False)
+        except IndexError:
+            return None
+        value_in += r['txout'].nValue
+
+    value_out = sum(txout.nValue for txout in tx.vout)
+    return value_in - value_out
 
 class Stamper:
     """Timestamping bot"""
@@ -134,6 +151,8 @@ class Stamper:
                 # FIXME: the reorged transaction might get mined in another
                 # block, so just adding the commitments for it back to the pool
                 # isn't ideal, but it is safe
+                logging.info('tx %s at height %d removed by reorg, adding %d commitments back to pending' % \
+                                (b2lx(reorged_tx.tx.GetHash()), block_height, len(reorged_tx.commitment_timestamps)))
                 for reorged_commitment_timestamp in reorged_tx.commitment_timestamps:
                     self.pending_commitments.add(reorged_commitment_timestamp.msg)
 
@@ -165,7 +184,7 @@ class Stamper:
                     self.pending_commitments.remove(commitment_timestamp.msg)
                     logging.debug("Removed commitment %s from pending" % b2x(commitment_timestamp.msg))
 
-                logging.info("Success! %d commitments timestamped by block" % len(tx.commitment_timestamps))
+                logging.info("Success! %d commitments timestamped, now waiting for %d confirmations" % (len(tx.commitment_timestamps), self.min_confirmations))
 
                 # Add pending_tx to the list of timestamp transactions that
                 # have been mined, and are waiting for confirmations.
@@ -173,6 +192,16 @@ class Stamper:
 
                 # Since all unconfirmed txs conflict with each other, we can clear the entire lot
                 self.unconfirmed_txs.clear()
+
+                # And finally, we can reset the last time a timestamp
+                # transaction was mined to right now.
+                self.last_timestamp_tx = time.time()
+
+        time_to_next_tx = int(self.last_timestamp_tx + self.min_tx_interval - time.time())
+        if time_to_next_tx > 0:
+            # Minimum interval between transactions hasn't been reached, so do nothing
+            logging.debug("Waiting %ds before next tx" % time_to_next_tx)
+            return
 
         prev_tx = None
         if self.pending_commitments and not self.unconfirmed_txs:
@@ -204,6 +233,11 @@ class Stamper:
             while sent_tx is None:
                 unsigned_tx = self.__update_timestamp_tx(prev_tx, tip_timestamp.msg,
                                                          self.proxy.getblockcount(), relay_feerate)
+
+                fee = _get_tx_fee(unsigned_tx, self.proxy)
+                if fee > self.max_fee:
+                    logging.error("Maximum txfee reached!")
+                    return
 
                 r = self.proxy.signrawtransaction(unsigned_tx)
                 assert r['complete'] # FIXME: error handling
@@ -246,7 +280,6 @@ class Stamper:
                 commitment = journal[idx]
                 idx += 1
             except KeyError:
-                logging.debug('No new commitments to stamp; at idx %d' % idx)
                 time.sleep(1)
                 continue
 
@@ -255,19 +288,23 @@ class Stamper:
                 logging.debug('Commitment %s already stamped' % b2x(commitment))
                 continue
 
-            logging.debug('Adding commitment %s to set of commitments that need stamping' % b2x(commitment))
             self.pending_commitments.add(commitment)
+            logging.debug('Added %s to pending commitments' % b2x(commitment))
 
-    def __init__(self, calendar, relay_feerate, min_confirmations):
+    def __init__(self, calendar, relay_feerate, min_confirmations, min_tx_interval, max_fee):
         self.calendar = calendar
 
         self.relay_feerate = relay_feerate
         self.min_confirmations = min_confirmations
+        self.min_tx_interval = min_tx_interval
+        self.max_fee = max_fee
 
         self.known_blocks = KnownBlocks()
         self.unconfirmed_txs = []
         self.pending_commitments = set()
         self.txs_waiting_for_confirmation = {}
+
+        self.last_timestamp_tx = 0
 
         self.thread = threading.Thread(target=self.__loop)
         self.thread.start()

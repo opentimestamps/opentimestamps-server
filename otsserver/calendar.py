@@ -18,10 +18,11 @@ import time
 
 from opentimestamps.core.timestamp import OpPrepend, OpAppend, OpSHA256, OpVerify
 from opentimestamps.timestamp import make_merkle_tree, nonce_timestamp
-from opentimestamps.core.notary import PendingAttestation
+from opentimestamps.core.notary import PendingAttestation, BitcoinBlockHeaderAttestation
 from opentimestamps.core.timestamp import Timestamp
+from opentimestamps.core.serialize import StreamSerializationContext, StreamDeserializationContext, DeserializationError
 
-from bitcoin.core import b2x
+from bitcoin.core import b2x, b2lx
 
 class Journal:
     """Append-only commitment storage
@@ -32,6 +33,15 @@ class Journal:
 
     def __init__(self, path):
         self.read_fd = open(path, "rb")
+
+    def __getitem__(self, idx):
+        self.read_fd.seek(idx * self.COMMITMENT_SIZE)
+        commitment = self.read_fd.read(self.COMMITMENT_SIZE)
+
+        if len(commitment) == self.COMMITMENT_SIZE:
+            return commitment
+        else:
+            raise KeyError()
 
 class JournalWriter(Journal):
     """Writer for the journal"""
@@ -60,7 +70,7 @@ class JournalWriter(Journal):
         assert (self.append_fd.tell() % self.COMMITMENT_SIZE) == 0
         self.append_fd.write(commitment)
         self.append_fd.flush()
-        os.fsync(self.append_fd.fileno())
+        os.fdatasync(self.append_fd.fileno())
 
 
 class Calendar:
@@ -75,6 +85,76 @@ class Calendar:
         commitment.add_op(OpVerify, PendingAttestation(b"fixme"))
 
         self.journal.submit(commitment.msg)
+
+
+    def __commitment_timestamps_path(self, commitment):
+        """Return the path where timestamps are stored for a given commitment"""
+        # four nesting levels
+        return (self.path + '/commitments/' +
+                b2x(commitment[0:1]) + '/' +
+                b2x(commitment[1:2]) + '/' +
+                b2x(commitment[2:3]) + '/' +
+                b2x(commitment[3:4]) + '/' +
+                b2x(commitment) + '/')
+
+    def __contains__(self, commitment):
+        try:
+            next(self[commitment])
+        except KeyError:
+            return False
+        return True
+
+    def __getitem__(self, commitment):
+        """Get commitment timestamps(s)"""
+        commitment_path = self.__commitment_timestamps_path(commitment)
+        print(commitment_path)
+        try:
+            timestamps = os.listdir(commitment_path)
+        except FileNotFoundError:
+            raise KeyError("No such commitment")
+
+        if not timestamps:
+            # An empty directory should fail too
+            raise KeyError("No such commitment")
+
+        no_valid_timestamps = True
+        for timestamp_filename in sorted(timestamps):
+            timestamp_path = commitment_path + timestamp_filename
+            with open(timestamp_path, 'rb') as timestamp_fd:
+                ctx = StreamDeserializationContext(timestamp_fd)
+                try:
+                    timestamp = Timestamp.deserialize(ctx, commitment)
+                except DeserializationError as err:
+                    logging.error("Bad commitment timestamp %r, err %r" % (timestamp_path, err))
+                    continue
+
+                no_valid_timestamps = False
+                yield timestamp
+        if no_valid_timestamps:
+            raise KeyError("No such commitment")
+
+    def __commitment_verification_path(self, commitment, verify_op):
+        """Return the path for a specific timestamp"""
+        # assuming bitcoin timestamp...
+        assert verify_op.attestation.__class__ == BitcoinBlockHeaderAttestation
+        return (self.__commitment_timestamps_path(commitment) +
+                'btcblk-%07d-%s' % (verify_op.attestation.height, b2lx(verify_op.msg)))
+
+
+    def add_commitment_timestamp(self, timestamp):
+        """Add a timestamp for a commitment"""
+        path = self.__commitment_timestamps_path(timestamp.msg)
+        os.makedirs(path, exist_ok=True)
+
+        for verify_op in timestamp.verifications():
+            # FIXME: we shouldn't ever be asked to open a file that aleady
+            # exists, but we should handle it anyway
+            with open(self.__commitment_verification_path(timestamp.msg, verify_op), 'xb') as fd:
+                ctx = StreamSerializationContext(fd)
+                timestamp.serialize(ctx)
+
+                fd.flush()
+                os.fsync(fd.fileno())
 
 class Aggregator:
     def __loop(self):

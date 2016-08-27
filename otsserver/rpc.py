@@ -9,6 +9,7 @@
 # modified, propagated, or distributed except according to the terms contained
 # in the LICENSE file.
 
+import binascii
 import http.server
 import os
 import socketserver
@@ -42,7 +43,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         timestamp = self.aggregator.submit(msg)
 
         self.send_response(200)
-        self.send_header('Content-type','text/html')
+        self.send_header('Content-type','text/html') # FIXME
         self.end_headers()
 
         ctx = StreamSerializationContext(self.wfile)
@@ -57,10 +58,32 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
 
     def get_commitment(self):
+        commitment = self.path[len('/commitment/'):]
+
+        try:
+            commitment = binascii.unhexlify(commitment)
+        except binascii.Error:
+            self.send_response(400)
+            self.send_header('Content-type','text/plain') # FIXME
+            self.end_headers()
+            self.wfile.write(b'commitment must be hex-encoded bytes')
+            return
+
+        try:
+            timestamps = tuple(self.calendar[commitment])
+        except KeyError:
+            self.send_response(404)
+            self.send_header('Content-type','text/plain') # FIXME
+            self.end_headers()
+            self.wfile.write(b'not found')
+            return
+
         self.send_response(200)
-        self.send_header('Content-type','text/html')
+        self.send_header('Content-type','text/html') # FIXME
         self.end_headers()
 
+        for timestamp in timestamps:
+            timestamp.serialize(StreamSerializationContext(self.wfile))
 
     def do_POST(self):
         if self.path == '/commitment':
@@ -84,10 +107,11 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
 
 class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    def __init__(self, server_address, aggregator):
+    def __init__(self, server_address, aggregator, calendar):
         class rpc_request_handler(RPCRequestHandler):
             pass
         rpc_request_handler.aggregator = aggregator
+        rpc_request_handler.calendar = calendar
 
         super().__init__(server_address, rpc_request_handler)
 

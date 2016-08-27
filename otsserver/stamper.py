@@ -78,6 +78,9 @@ class KnownBlocks:
 
         return r
 
+    def best_block_height(self):
+        return self.__blocks[-1].height if self.__blocks else 0
+
 def _get_tx_fee(tx, proxy):
     """Calculate tx fee
 
@@ -153,12 +156,6 @@ class Stamper:
                 for reorged_commitment_timestamp in reorged_tx.commitment_timestamps:
                     self.pending_commitments.add(reorged_commitment_timestamp.msg)
 
-            # Save commitments to disk that have reached min_confirmations
-            confirmed_tx = self.txs_waiting_for_confirmation.pop(block_height - self.min_confirmations, None)
-            if confirmed_tx is not None:
-                self.__save_confirmed_timestamp_tx(confirmed_tx)
-
-
             # Check if this block contains any of the pending transactions
 
             try:
@@ -181,7 +178,7 @@ class Stamper:
                     self.pending_commitments.remove(commitment_timestamp.msg)
                     logging.debug("Removed commitment %s from pending" % b2x(commitment_timestamp.msg))
 
-                logging.info("Success! %d commitments timestamped, now waiting for %d confirmations" % (len(tx.commitment_timestamps), self.min_confirmations))
+                logging.info("Success! %d commitments timestamped, now waiting for %d more confirmations" % (len(tx.commitment_timestamps), self.min_confirmations - 1))
 
                 # Add pending_tx to the list of timestamp transactions that
                 # have been mined, and are waiting for confirmations.
@@ -193,6 +190,11 @@ class Stamper:
                 # And finally, we can reset the last time a timestamp
                 # transaction was mined to right now.
                 self.last_timestamp_tx = time.time()
+
+        # Save commitments to disk that have reached min_confirmations
+        confirmed_tx = self.txs_waiting_for_confirmation.pop(self.known_blocks.best_block_height() - self.min_confirmations + 1, None)
+        if confirmed_tx is not None:
+            self.__save_confirmed_timestamp_tx(confirmed_tx)
 
         time_to_next_tx = int(self.last_timestamp_tx + self.min_tx_interval - time.time())
         if time_to_next_tx > 0:
@@ -303,6 +305,7 @@ class Stamper:
 
         self.relay_feerate = relay_feerate
         self.min_confirmations = min_confirmations
+        assert self.min_confirmations > 0
         self.min_tx_interval = min_tx_interval
         self.max_fee = max_fee
 

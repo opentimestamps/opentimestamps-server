@@ -206,7 +206,8 @@ class Stamper:
         prev_tx = None
         if self.pending_commitments and not self.unconfirmed_txs:
             # Find the biggest unspent output that's confirmed
-            unspent = sorted(self.proxy.listunspent(), key=lambda x: x['amount'])
+            unspent = sorted(self.proxy.listunspent(1),
+                             key=lambda x: x['amount'] if x['spendable'] else 0)
             assert len(unspent) # FIXME: handle running out of money!
 
             # For the change scriptPubKey, we can save a few bytes by using

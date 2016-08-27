@@ -13,6 +13,7 @@ import logging
 import os
 import queue
 import struct
+import sys
 import threading
 import time
 
@@ -80,11 +81,19 @@ class Calendar:
         self.path = path
         self.journal = JournalWriter(path + '/journal')
 
+        try:
+            uri_path = self.path + '/uri'
+            with open(uri_path, 'rb') as fd:
+                self.uri = fd.read().strip()
+        except FileNotFoundError as err:
+            logging.error('Calendar URI not yet set; %r does not exist' % uri_path)
+            sys.exit(1)
+
     def submit(self, submitted_commitment):
         serialized_time = struct.pack('>L', int(time.time()))
 
         commitment = submitted_commitment.add_op(OpPrepend, serialized_time).timestamp
-        commitment.add_op(OpVerify, PendingAttestation(b"fixme"))
+        commitment.add_op(OpVerify, PendingAttestation(self.uri))
 
         self.journal.submit(commitment.msg)
 

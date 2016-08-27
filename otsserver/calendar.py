@@ -118,7 +118,6 @@ class Calendar:
     def __getitem__(self, commitment):
         """Get commitment timestamps(s)"""
         commitment_path = self.__commitment_timestamps_path(commitment)
-        print(commitment_path)
         try:
             timestamps = os.listdir(commitment_path)
         except FileNotFoundError:

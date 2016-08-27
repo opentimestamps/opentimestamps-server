@@ -49,14 +49,6 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         ctx = StreamSerializationContext(self.wfile)
         timestamp.serialize(ctx)
 
-        from binascii import hexlify
-        from opentimestamps.core.serialize import BytesSerializationContext
-        ctx = BytesSerializationContext()
-        timestamp.serialize(ctx)
-        print(hexlify(ctx.getbytes()))
-
-
-
     def get_timestamp(self):
         commitment = self.path[len('/timestamp/'):]
 

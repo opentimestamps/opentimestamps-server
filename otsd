@@ -33,7 +33,7 @@ parser.add_argument("-v", "--verbose", action="count", default=0,
                     help="Be more verbose. Both -v and -q may be used multiple times.")
 parser.add_argument("-c", "--calendar", type=str,
                     dest='calendar_path',
-                    default='~/.otsd/calendar/',
+                    default='~/.otsd/calendar',
                     help="Location of the calendar")
 
 parser.add_argument("--btc-min-relay-feerate", metavar='FEEPERKB', type=float,

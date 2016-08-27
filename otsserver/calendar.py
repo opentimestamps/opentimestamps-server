@@ -75,6 +75,8 @@ class JournalWriter(Journal):
 
 class Calendar:
     def __init__(self, path):
+        path = os.path.normpath(path)
+        os.makedirs(path, exist_ok=True)
         self.path = path
         self.journal = JournalWriter(path + '/journal')
 
@@ -90,12 +92,12 @@ class Calendar:
     def __commitment_timestamps_path(self, commitment):
         """Return the path where timestamps are stored for a given commitment"""
         # four nesting levels
-        return (self.path + '/commitments/' +
+        return (self.path + '/timestamps/' +
                 b2x(commitment[0:1]) + '/' +
                 b2x(commitment[1:2]) + '/' +
                 b2x(commitment[2:3]) + '/' +
                 b2x(commitment[3:4]) + '/' +
-                b2x(commitment) + '/')
+                b2x(commitment))
 
     def __contains__(self, commitment):
         try:
@@ -119,7 +121,7 @@ class Calendar:
 
         no_valid_timestamps = True
         for timestamp_filename in sorted(timestamps):
-            timestamp_path = commitment_path + timestamp_filename
+            timestamp_path = commitment_path + '/' + timestamp_filename
             with open(timestamp_path, 'rb') as timestamp_fd:
                 ctx = StreamDeserializationContext(timestamp_fd)
                 try:
@@ -138,7 +140,7 @@ class Calendar:
         # assuming bitcoin timestamp...
         assert verify_op.attestation.__class__ == BitcoinBlockHeaderAttestation
         return (self.__commitment_timestamps_path(commitment) +
-                'btcblk-%07d-%s' % (verify_op.attestation.height, b2lx(verify_op.msg)))
+                '/btcblk-%07d-%s' % (verify_op.attestation.height, b2lx(verify_op.msg)))
 
 
     def add_commitment_timestamp(self, timestamp):

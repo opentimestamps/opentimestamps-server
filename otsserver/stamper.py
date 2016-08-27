@@ -205,7 +205,10 @@ class Stamper:
             # Find the biggest unspent output that's confirmed
             unspent = sorted(self.proxy.listunspent(1),
                              key=lambda x: x['amount'] if x['spendable'] else 0)
-            assert len(unspent) # FIXME: handle running out of money!
+
+            if not len(unspent):
+                logging.error("Can't timestamp; no spendable outputs")
+                return
 
             # For the change scriptPubKey, we can save a few bytes by using
             # a pay-to-pubkey rather than the usual pay-to-pubkeyhash
@@ -234,12 +237,17 @@ class Stamper:
                                                          self.proxy.getblockcount(), relay_feerate)
 
                 fee = _get_tx_fee(unsigned_tx, self.proxy)
+                if fee is None:
+                    logging.debug("Can't determine txfee of transaction; skipping")
+                    return
                 if fee > self.max_fee:
                     logging.error("Maximum txfee reached!")
                     return
 
                 r = self.proxy.signrawtransaction(unsigned_tx)
-                assert r['complete'] # FIXME: error handling
+                if not r['complete']:
+                    logging.error("Failed to sign transaction! r = %r" % r)
+                    return
                 signed_tx = r['tx']
 
                 try:

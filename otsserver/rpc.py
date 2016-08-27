@@ -19,28 +19,28 @@ import time
 from opentimestamps.core.serialize import StreamSerializationContext
 
 class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
-    MAX_COMMITMENT_MSG_LENGTH = 64
-    """Largest message that can be POSTed for commitment"""
+    MAX_DIGEST_LENGTH = 64
+    """Largest digest that can be POSTed for timestamping"""
 
     NONCE_LENGTH = 16
-    """Length of nonce added to submitted messages"""
+    """Length of nonce added to submitted digests"""
 
     digest_queue = None
 
-    def post_commitment(self):
+    def post_digest(self):
         content_length = int(self.headers['Content-Length'])
 
-        if content_length > self.MAX_COMMITMENT_MSG_LENGTH:
+        if content_length > self.MAX_DIGEST_LENGTH:
             self.send_response(400)
             self.send_header('Content-type','text/plain')
             self.end_headers()
-            self.wfile.write(b'message too long')
+            self.wfile.write(b'digest too long')
             return
 
 
-        msg = self.rfile.read(content_length)
+        digest = self.rfile.read(content_length)
 
-        timestamp = self.aggregator.submit(msg)
+        timestamp = self.aggregator.submit(digest)
 
         self.send_response(200)
         self.send_header('Content-type','text/html') # FIXME
@@ -57,8 +57,8 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
 
 
-    def get_commitment(self):
-        commitment = self.path[len('/commitment/'):]
+    def get_timestamp(self):
+        commitment = self.path[len('/timestamp/'):]
 
         try:
             commitment = binascii.unhexlify(commitment)
@@ -86,8 +86,8 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             timestamp.serialize(StreamSerializationContext(self.wfile))
 
     def do_POST(self):
-        if self.path == '/commitment':
-            self.post_commitment()
+        if self.path == '/digest':
+            self.post_digest()
 
         else:
             self.send_response(404)
@@ -96,8 +96,8 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b'not found')
 
     def do_GET(self):
-        if self.path.startswith('/commitment/'):
-            self.get_commitment()
+        if self.path.startswith('/timestamp/'):
+            self.get_timestamp()
 
         else:
             self.send_response(404)

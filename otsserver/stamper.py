@@ -137,9 +137,6 @@ class Stamper:
         """Do Bitcoin-related maintenance"""
         new_blocks = self.known_blocks.update_from_proxy(self.proxy)
 
-        if not new_blocks:
-            return
-
         for (block_height, block_hash) in new_blocks:
             logging.info("New block %s at height %d" % (b2lx(block_hash), block_height))
 
@@ -224,7 +221,8 @@ class Stamper:
         elif self.unconfirmed_txs:
             (prev_tx, prev_tip_timestamp, prev_commitment_timestamps) = self.unconfirmed_txs[-1]
 
-        if prev_tx:
+        # Send the first transaction even if we don't have a new block
+        if prev_tx and (new_blocks or not self.unconfirmed_txs):
             # Update the most recent timestamp transaction with new commitments
             commitment_timestamps = [Timestamp(commitment) for commitment in self.pending_commitments]
             tip_timestamp = make_merkle_tree(commitment_timestamps)

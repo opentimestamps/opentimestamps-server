@@ -188,7 +188,7 @@ class Aggregator:
 
             digests_commitment = make_merkle_tree(digests)
 
-            logging.info("Aggregated %d digests under committment %s" % (len(digests), b2x(digests_commitment.msg)))
+            logging.info("Aggregated %d digests under commitment %s" % (len(digests), b2x(digests_commitment.msg)))
 
             self.calendar.submit(digests_commitment)
 
@@ -213,7 +213,7 @@ class Aggregator:
 
         # Add nonce to ensure requestor doesn't learn anything about other
         # messages being committed at the same time, as well as to ensure that
-        # anything we store related to this committment can't be controlled by
+        # anything we store related to this commitment can't be controlled by
         # them.
         done_event = threading.Event()
         self.digest_queue.put((nonce_timestamp(timestamp), done_event))

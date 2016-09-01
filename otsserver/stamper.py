@@ -124,7 +124,8 @@ class Stamper:
 
         old_change_txout = old_tx.vout[0]
 
-        assert delta_fee < old_change_txout.nValue # FIXME: handle running out of money!
+        assert old_change_txout.nValue - delta_fee > relay_feerate * 3  # FIXME: handle running out of money!
+
         return CTransaction(old_tx.vin,
                             [CTxOut(old_change_txout.nValue - delta_fee, old_change_txout.scriptPubKey),
                              CTxOut(0, CScript([OP_RETURN, new_commitment]))],

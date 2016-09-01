@@ -25,6 +25,7 @@ from opentimestamps.core.serialize import StreamSerializationContext, StreamDese
 
 from bitcoin.core import b2x, b2lx
 
+
 class Journal:
     """Append-only commitment storage
 
@@ -43,6 +44,7 @@ class Journal:
             return commitment
         else:
             raise KeyError()
+
 
 class JournalWriter(Journal):
     """Writer for the journal"""
@@ -97,7 +99,6 @@ class Calendar:
 
         self.journal.submit(commitment.msg)
 
-
     def __commitment_timestamps_path(self, commitment):
         """Return the path where timestamps are stored for a given commitment"""
         # four nesting levels
@@ -150,7 +151,6 @@ class Calendar:
         return (self.__commitment_timestamps_path(commitment) +
                 '/btcblk-%07d-%s' % (verify_op.attestation.height, b2lx(verify_op.msg)))
 
-
     def add_commitment_timestamp(self, timestamp):
         """Add a timestamp for a commitment"""
         path = self.__commitment_timestamps_path(timestamp.msg)
@@ -165,6 +165,7 @@ class Calendar:
 
                 fd.flush()
                 os.fsync(fd.fileno())
+
 
 class Aggregator:
     def __loop(self):

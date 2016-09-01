@@ -56,13 +56,13 @@ parser.add_argument("--btc-max-fee", metavar='FEE', type=float,
                     default=0.001,
                     help="Maximum transaction fee (default: %(default).3f BTC)")
 
-btc_net_group  = parser.add_mutually_exclusive_group()
+btc_net_group = parser.add_mutually_exclusive_group()
 btc_net_group.add_argument('--btc-testnet', dest='btc_net', action='store_const',
-                    const='testnet', default='mainnet',
-                    help='Use Bitcoin testnet rather than mainnet')
+                           const='testnet', default='mainnet',
+                           help='Use Bitcoin testnet rather than mainnet')
 btc_net_group.add_argument('--btc-regtest', dest='btc_net', action='store_const',
-                    const='regtest',
-                    help='Use Bitcoin regtest rather than mainnet')
+                           const='regtest',
+                           help='Use Bitcoin regtest rather than mainnet')
 
 args = parser.parse_args()
 args.parser = parser
@@ -80,9 +80,9 @@ elif args.verbosity < -1:
     logging.root.setLevel(logging.ERROR)
 
 if args.btc_net == 'testnet':
-   bitcoin.SelectParams('testnet')
+    bitcoin.SelectParams('testnet')
 elif args.btc_net == 'regtest':
-   bitcoin.SelectParams('regtest')
+    bitcoin.SelectParams('regtest')
 
 
 calendar_path = os.path.expanduser(args.calendar_path)

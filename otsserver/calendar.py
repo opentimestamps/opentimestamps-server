@@ -71,7 +71,7 @@ class JournalWriter(Journal):
         assert (self.append_fd.tell() % self.COMMITMENT_SIZE) == 0
         self.append_fd.write(commitment)
         self.append_fd.flush()
-        os.fdatasync(self.append_fd.fileno())
+        os.fsync(self.append_fd.fileno())
 
 
 class Calendar:

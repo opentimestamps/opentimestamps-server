@@ -12,8 +12,10 @@
 
 import argparse
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 import queue
+import sys
 
 import bitcoin
 import bitcoin.core
@@ -32,6 +34,15 @@ parser.add_argument("-c", "--calendar", type=str,
                     dest='calendar_path',
                     default='~/.otsd/calendar',
                     help="Location of the calendar (default: '%(default)s')")
+
+parser.add_argument("--debug-file", type=str,
+                    dest='debug_file',
+                    default='~/.otsd/debug.log',
+                    help="Location of the debug log")
+parser.add_argument("--debug-file-max-size", type=int,
+                    dest='debug_file_max_size',
+                    default='10000000',
+                    help="Max size of the debug log in bytes (default: 10000000)")
 
 parser.add_argument("--rpc-port", type=int,
                     default=14788,
@@ -64,6 +75,12 @@ btc_net_group.add_argument('--btc-regtest', dest='btc_net', action='store_const'
 args = parser.parse_args()
 args.parser = parser
 
+debugfile = os.path.expanduser(args.debug_file)
+handler = RotatingFileHandler(filename=debugfile, maxBytes=args.debug_file_max_size)
+logger = logging.getLogger('')
+logger.addHandler(handler)
+ch = logging.StreamHandler(sys.stdout)
+logger.addHandler(ch)
 
 args.verbosity = args.verbose - args.quiet
 

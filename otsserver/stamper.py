@@ -31,15 +31,15 @@ from opentimestamps.timestamp import make_merkle_tree, nonce_timestamp
 
 from otsserver.calendar import Journal
 
-
 KnownBlock = collections.namedtuple('KnownBlock', ['height', 'hash'])
 TimestampTx = collections.namedtuple('TimestampTx', ['tx', 'tip_timestamp', 'commitment_timestamps'])
+
 
 class KnownBlocks:
     """Maintain a list of known blocks"""
 
     def __init__(self):
-        self.__blocks  = []
+        self.__blocks = []
 
     def __detect_reorgs(self, proxy):
         """Detect reorgs, rolling back if needed"""
@@ -55,7 +55,6 @@ class KnownBlocks:
 
             logging.info("Reorg detected at height %d, rolling back block %s" % (self.__blocks[-1].height, b2lx(self.__blocks[-1].hash)))
             self.__blocks.pop(-1)
-
 
     def update_from_proxy(self, proxy):
         """Update from an RPC proxy
@@ -81,6 +80,7 @@ class KnownBlocks:
     def best_block_height(self):
         return self.__blocks[-1].height if self.__blocks else 0
 
+
 def _get_tx_fee(tx, proxy):
     """Calculate tx fee
 
@@ -96,6 +96,7 @@ def _get_tx_fee(tx, proxy):
 
     value_out = sum(txout.nValue for txout in tx.vout)
     return value_in - value_out
+
 
 class Stamper:
     """Timestamping bot"""
@@ -124,7 +125,8 @@ class Stamper:
 
         old_change_txout = old_tx.vout[0]
 
-        assert delta_fee < old_change_txout.nValue # FIXME: handle running out of money!
+        assert old_change_txout.nValue - delta_fee > relay_feerate * 3  # FIXME: handle running out of money!
+
         return CTransaction(old_tx.vin,
                             [CTxOut(old_change_txout.nValue - delta_fee, old_change_txout.scriptPubKey),
                              CTxOut(0, CScript([OP_RETURN, new_commitment]))],
@@ -134,7 +136,9 @@ class Stamper:
         """Save a fully confirmed timestamp to disk"""
         for timestamp in confirmed_tx.commitment_timestamps:
             self.calendar.add_commitment_timestamp(timestamp)
-        logging.info("tx %s fully confirmed, %d timestamps added to calendar" % (b2lx(confirmed_tx.tx.GetHash()), len(confirmed_tx.commitment_timestamps)))
+        logging.info("tx %s fully confirmed, %d timestamps added to calendar" %
+                     (b2lx(confirmed_tx.tx.GetHash()),
+                      len(confirmed_tx.commitment_timestamps)))
 
     def __do_bitcoin(self):
         """Do Bitcoin-related maintenance"""
@@ -151,8 +155,7 @@ class Stamper:
                 # FIXME: the reorged transaction might get mined in another
                 # block, so just adding the commitments for it back to the pool
                 # isn't ideal, but it is safe
-                logging.info('tx %s at height %d removed by reorg, adding %d commitments back to pending' % \
-                                (b2lx(reorged_tx.tx.GetHash()), block_height, len(reorged_tx.commitment_timestamps)))
+                logging.info('tx %s at height %d removed by reorg, adding %d commitments back to pending' % (b2lx(reorged_tx.tx.GetHash()), block_height, len(reorged_tx.commitment_timestamps)))
                 for reorged_commitment_timestamp in reorged_tx.commitment_timestamps:
                     self.pending_commitments.add(reorged_commitment_timestamp.msg)
 
@@ -178,7 +181,8 @@ class Stamper:
                     self.pending_commitments.remove(commitment_timestamp.msg)
                     logging.debug("Removed commitment %s from pending" % b2x(commitment_timestamp.msg))
 
-                logging.info("Success! %d commitments timestamped, now waiting for %d more confirmations" % (len(tx.commitment_timestamps), self.min_confirmations - 1))
+                logging.info("Success! %d commitments timestamped, now waiting for %d more confirmations" %
+                             (len(tx.commitment_timestamps), self.min_confirmations - 1))
 
                 # Add pending_tx to the list of timestamp transactions that
                 # have been mined, and are waiting for confirmations.
@@ -218,8 +222,7 @@ class Stamper:
             change_pubkey = self.proxy.validateaddress(change_addr)['pubkey']
             change_scriptPubKey = CScript([change_pubkey, OP_CHECKSIG])
 
-            prev_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'],
-                                                              change_scriptPubKey)
+            prev_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'], change_scriptPubKey)
 
             logging.debug('New timestamp tx, spending output %r, value %s' % (unspent[-1]['outpoint'], str_money_value(unspent[-1]['amount'])))
 
@@ -263,7 +266,7 @@ class Stamper:
                         continue
 
                     else:
-                        raise err # something else, fail!
+                        raise err  # something else, fail!
 
                 sent_tx = signed_tx
 

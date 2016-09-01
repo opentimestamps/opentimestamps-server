@@ -10,13 +10,12 @@
 # modified, propagated, or distributed except according to the terms contained
 # in the LICENSE file.
 
-import sys
-sys.path.insert(1, sys.path[0] + '/python-opentimestamps/')
-
 import argparse
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 import queue
+import sys
 
 import bitcoin
 import bitcoin.core
@@ -35,6 +34,15 @@ parser.add_argument("-c", "--calendar", type=str,
                     dest='calendar_path',
                     default='~/.otsd/calendar',
                     help="Location of the calendar (default: '%(default)s')")
+
+parser.add_argument("--debug-file", type=str,
+                    dest='debug_file',
+                    default='~/.otsd/debug.log',
+                    help="Location of the debug log")
+parser.add_argument("--debug-file-max-size", type=int,
+                    dest='debug_file_max_size',
+                    default='10000000',
+                    help="Max size of the debug log in bytes (default: 10000000)")
 
 parser.add_argument("--rpc-port", type=int,
                     default=14788,
@@ -56,17 +64,23 @@ parser.add_argument("--btc-max-fee", metavar='FEE', type=float,
                     default=0.001,
                     help="Maximum transaction fee (default: %(default).3f BTC)")
 
-btc_net_group  = parser.add_mutually_exclusive_group()
+btc_net_group = parser.add_mutually_exclusive_group()
 btc_net_group.add_argument('--btc-testnet', dest='btc_net', action='store_const',
-                    const='testnet', default='mainnet',
-                    help='Use Bitcoin testnet rather than mainnet')
+                           const='testnet', default='mainnet',
+                           help='Use Bitcoin testnet rather than mainnet')
 btc_net_group.add_argument('--btc-regtest', dest='btc_net', action='store_const',
-                    const='regtest',
-                    help='Use Bitcoin regtest rather than mainnet')
+                           const='regtest',
+                           help='Use Bitcoin regtest rather than mainnet')
 
 args = parser.parse_args()
 args.parser = parser
 
+debugfile = os.path.expanduser(args.debug_file)
+handler = RotatingFileHandler(filename=debugfile, maxBytes=args.debug_file_max_size)
+logger = logging.getLogger('')
+logger.addHandler(handler)
+ch = logging.StreamHandler(sys.stdout)
+logger.addHandler(ch)
 
 args.verbosity = args.verbose - args.quiet
 
@@ -80,9 +94,9 @@ elif args.verbosity < -1:
     logging.root.setLevel(logging.ERROR)
 
 if args.btc_net == 'testnet':
-   bitcoin.SelectParams('testnet')
+    bitcoin.SelectParams('testnet')
 elif args.btc_net == 'regtest':
-   bitcoin.SelectParams('regtest')
+    bitcoin.SelectParams('regtest')
 
 
 calendar_path = os.path.expanduser(args.calendar_path)

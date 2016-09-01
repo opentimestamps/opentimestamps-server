@@ -18,6 +18,7 @@ import time
 
 from opentimestamps.core.serialize import StreamSerializationContext
 
+
 class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     MAX_DIGEST_LENGTH = 64
     """Largest digest that can be POSTed for timestamping"""
@@ -32,18 +33,17 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
         if content_length > self.MAX_DIGEST_LENGTH:
             self.send_response(400)
-            self.send_header('Content-type','text/plain')
+            self.send_header('Content-type', 'text/plain')
             self.end_headers()
             self.wfile.write(b'digest too long')
             return
-
 
         digest = self.rfile.read(content_length)
 
         timestamp = self.aggregator.submit(digest)
 
         self.send_response(200)
-        self.send_header('Content-type','text/html') # FIXME
+        self.send_header('Content-type', 'text/html')  # FIXME
         self.end_headers()
 
         ctx = StreamSerializationContext(self.wfile)
@@ -56,7 +56,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             commitment = binascii.unhexlify(commitment)
         except binascii.Error:
             self.send_response(400)
-            self.send_header('Content-type','text/plain') # FIXME
+            self.send_header('Content-type', 'text/plain')  # FIXME
             self.end_headers()
             self.wfile.write(b'commitment must be hex-encoded bytes')
             return
@@ -65,13 +65,13 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             timestamps = tuple(self.calendar[commitment])
         except KeyError:
             self.send_response(404)
-            self.send_header('Content-type','text/plain') # FIXME
+            self.send_header('Content-type', 'text/plain')  # FIXME
             self.end_headers()
             self.wfile.write(b'not found')
             return
 
         self.send_response(200)
-        self.send_header('Content-type','text/html') # FIXME
+        self.send_header('Content-type', 'text/html')  # FIXME
         self.end_headers()
 
         for timestamp in timestamps:
@@ -83,7 +83,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
         else:
             self.send_response(404)
-            self.send_header('Content-type','text/plain')
+            self.send_header('Content-type', 'text/plain')
             self.end_headers()
             self.wfile.write(b'not found')
 
@@ -93,7 +93,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
         else:
             self.send_response(404)
-            self.send_header('Content-type','text/plain')
+            self.send_header('Content-type', 'text/plain')
             self.end_headers()
             self.wfile.write(b'not found')
 

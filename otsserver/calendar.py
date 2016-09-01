@@ -25,6 +25,7 @@ from opentimestamps.core.serialize import StreamSerializationContext, StreamDese
 
 from bitcoin.core import b2x, b2lx
 
+
 class Journal:
     """Append-only commitment storage
 
@@ -43,6 +44,7 @@ class Journal:
             return commitment
         else:
             raise KeyError()
+
 
 class JournalWriter(Journal):
     """Writer for the journal"""
@@ -71,7 +73,7 @@ class JournalWriter(Journal):
         assert (self.append_fd.tell() % self.COMMITMENT_SIZE) == 0
         self.append_fd.write(commitment)
         self.append_fd.flush()
-        os.fdatasync(self.append_fd.fileno())
+        os.fsync(self.append_fd.fileno())
 
 
 class Calendar:
@@ -96,7 +98,6 @@ class Calendar:
         commitment.add_op(OpVerify, PendingAttestation(self.uri))
 
         self.journal.submit(commitment.msg)
-
 
     def __commitment_timestamps_path(self, commitment):
         """Return the path where timestamps are stored for a given commitment"""
@@ -150,7 +151,6 @@ class Calendar:
         return (self.__commitment_timestamps_path(commitment) +
                 '/btcblk-%07d-%s' % (verify_op.attestation.height, b2lx(verify_op.msg)))
 
-
     def add_commitment_timestamp(self, timestamp):
         """Add a timestamp for a commitment"""
         path = self.__commitment_timestamps_path(timestamp.msg)
@@ -165,6 +165,7 @@ class Calendar:
 
                 fd.flush()
                 os.fsync(fd.fileno())
+
 
 class Aggregator:
     def __loop(self):
@@ -187,7 +188,7 @@ class Aggregator:
 
             digests_commitment = make_merkle_tree(digests)
 
-            logging.info("Aggregated %d digests under committment %s" % (len(digests), b2x(digests_commitment.msg)))
+            logging.info("Aggregated %d digests under commitment %s" % (len(digests), b2x(digests_commitment.msg)))
 
             self.calendar.submit(digests_commitment)
 
@@ -212,7 +213,7 @@ class Aggregator:
 
         # Add nonce to ensure requestor doesn't learn anything about other
         # messages being committed at the same time, as well as to ensure that
-        # anything we store related to this committment can't be controlled by
+        # anything we store related to this commitment can't be controlled by
         # them.
         done_event = threading.Event()
         self.digest_queue.put((nonce_timestamp(timestamp), done_event))

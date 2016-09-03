@@ -25,7 +25,7 @@ from bitcoin.core.script import CScript, OP_RETURN, OP_CHECKSIG
 from opentimestamps.bitcoin import make_timestamp_from_block
 from opentimestamps.core.notary import PendingAttestation
 from opentimestamps.core.serialize import StreamSerializationContext, StreamDeserializationContext
-from opentimestamps.core.timestamp import OpPrepend, OpAppend, OpSHA256, OpVerify
+from opentimestamps.core.op import OpPrepend, OpAppend, OpSHA256
 from opentimestamps.core.timestamp import Timestamp
 from opentimestamps.timestamp import make_merkle_tree, nonce_timestamp
 

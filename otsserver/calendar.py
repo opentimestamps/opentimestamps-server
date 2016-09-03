@@ -17,11 +17,11 @@ import sys
 import threading
 import time
 
-from opentimestamps.core.timestamp import OpPrepend, OpAppend, OpSHA256, OpVerify
-from opentimestamps.timestamp import make_merkle_tree, nonce_timestamp
 from opentimestamps.core.notary import PendingAttestation, BitcoinBlockHeaderAttestation
-from opentimestamps.core.timestamp import Timestamp
+from opentimestamps.core.op import OpPrepend, OpAppend, OpSHA256
 from opentimestamps.core.serialize import StreamSerializationContext, StreamDeserializationContext, DeserializationError
+from opentimestamps.core.timestamp import Timestamp
+from opentimestamps.timestamp import make_merkle_tree, nonce_timestamp
 
 from bitcoin.core import b2x, b2lx
 
@@ -94,8 +94,8 @@ class Calendar:
     def submit(self, submitted_commitment):
         serialized_time = struct.pack('>L', int(time.time()))
 
-        commitment = submitted_commitment.add_op(OpPrepend, serialized_time).timestamp
-        commitment.add_op(OpVerify, PendingAttestation(self.uri))
+        commitment = submitted_commitment.ops.add(OpPrepend(serialized_time))
+        commitment.attestations.add(PendingAttestation(self.uri))
 
         self.journal.submit(commitment.msg)
 
@@ -156,10 +156,10 @@ class Calendar:
         path = self.__commitment_timestamps_path(timestamp.msg)
         os.makedirs(path, exist_ok=True)
 
-        for verify_op in timestamp.verifications():
+        for msg, attestation in timestamp.all_attestations():
             # FIXME: we shouldn't ever be asked to open a file that aleady
             # exists, but we should handle it anyway
-            with open(self.__commitment_verification_path(timestamp.msg, verify_op), 'xb') as fd:
+            with open(self.__commitment_verification_path(msg, attestation), 'xb') as fd:
                 ctx = StreamSerializationContext(fd)
                 timestamp.serialize(ctx)
 

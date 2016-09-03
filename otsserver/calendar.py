@@ -18,9 +18,9 @@ import sys
 import threading
 import time
 
-from opentimestamps.core.notary import PendingAttestation, BitcoinBlockHeaderAttestation
-from opentimestamps.core.op import OpPrepend, OpAppend, OpSHA256
-from opentimestamps.core.serialize import StreamSerializationContext, StreamDeserializationContext, DeserializationError
+from opentimestamps.core.notary import TimeAttestation, PendingAttestation, BitcoinBlockHeaderAttestation
+from opentimestamps.core.op import Op, OpPrepend, OpAppend, OpSHA256
+from opentimestamps.core.serialize import BytesDeserializationContext, BytesSerializationContext, StreamSerializationContext, StreamDeserializationContext, DeserializationError
 from opentimestamps.core.timestamp import Timestamp
 from opentimestamps.timestamp import make_merkle_tree, nonce_timestamp
 
@@ -90,27 +90,42 @@ class LevelDbCalendar:
     def __get_timestamp(self, msg):
         """Get a timestamp, non-recursively"""
         serialized_timestamp = self.db.Get(msg)
+        ctx = BytesDeserializationContext(serialized_timestamp)
 
         timestamp = Timestamp(msg)
 
-        ctx = BytesDeserializationContext(serialized_timestamp)
-        while ctx.fd.tell() < len(serialized_timestamp):
-            op = Op.deserialize(msg, deserialize_timestamp=False)
-            timestamp.add_op(op)
+        for i in range(ctx.read_varuint()):
+            attestation = TimeAttestation.deserialize(ctx)
+            assert attestation not in timestamp.attestations
+            timestamp.attestations.add(attestation)
+
+        for i in range(ctx.read_varuint()):
+            op = Op.deserialize(ctx)
+            assert op not in timestamp.ops
+            timestamp.ops.add(op)
 
         return timestamp
+
+    def __put_timestamp(self, new_timestamp, batch):
+        """Write a single timestamp, non-recursively"""
+        ctx = BytesSerializationContext()
+
+        ctx.write_varuint(len(new_timestamp.attestations))
+        for attestation in new_timestamp.attestations:
+            attestation.serialize(ctx)
+
+        ctx.write_varuint(len(new_timestamp.ops))
+        for op in new_timestamp.ops:
+            op.serialize(ctx)
+
+        batch.Put(new_timestamp.msg, ctx.getbytes())
 
     def __getitem__(self, msg):
         """Get the timestamp for a given message"""
         timestamp = self.__get_timestamp(msg)
 
-        for op in timestamp:
-            try:
-                result = op.result
-            except AttributeError:
-                continue
-
-            op.timestamp = self.__get_timestamp(op.result)
+        for op, op_stamp in timestamp.ops.items():
+            timestamp.ops[op] = self[op_stamp.msg]
 
         return timestamp
 
@@ -119,21 +134,29 @@ class LevelDbCalendar:
             existing_timestamp = self.__get_timestamp(new_timestamp.msg)
         except KeyError:
             existing_timestamp = Timestamp(new_timestamp.msg)
+        else:
+            if existing_timestamp == new_timestamp:
+                # Note how because we didn't get the existing timestamp
+                # recursively, the only way old and new can be identical is if all
+                # the ops are verify operations.
+                return
 
-        if existing_timestamp == new_timestamp:
-            # Note how because we didn't get the existing timestamp
-            # recursively, the only way old and new can be identical is if all
-            # the ops are verify operations.
-            return
+        # Update the existing timestamps attestations with those from the new
+        # timestamp
+        existing_timestamp.attestations.update(new_timestamp.attestations)
 
-        modified = False
-        existing_ops = 
-        for op in new_timestamp:
-            if op 
+        for new_op, new_op_stamp in new_timestamp.ops.items():
+            # Make sure the existing timestamp has this operation
+            existing_timestamp.ops.add(new_op)
+
+            # Add the results timestamp to the calendar
+            self.__add_timestamp(new_op_stamp, batch)
+
+        self.__put_timestamp(existing_timestamp, batch)
 
     def add(self, new_timestamp):
-        batch = self.db.WriteBatch()
-        self.__add_timestamp(new_timestamp, self.db.WriteBatch())
+        batch = leveldb.WriteBatch()
+        self.__add_timestamp(new_timestamp, batch)
         self.db.Write(batch, sync = True)
 
 class Calendar:
@@ -143,7 +166,7 @@ class Calendar:
         self.path = path
         self.journal = JournalWriter(path + '/journal')
 
-        self.db = leveldb.LeveLB(path + '/db')
+        self.db = LevelDbCalendar(path + '/db')
 
         try:
             uri_path = self.path + '/uri'
@@ -162,61 +185,15 @@ class Calendar:
         self.journal.submit(commitment.msg)
 
     def __contains__(self, commitment):
-        try:
-            next(self[commitment])
-        except KeyError:
-            return False
-        return True
+        return commitment in self.db
 
     def __getitem__(self, commitment):
         """Get commitment timestamps(s)"""
-        commitment_path = self.__commitment_timestamps_path(commitment)
-        try:
-            timestamps = os.listdir(commitment_path)
-        except FileNotFoundError:
-            raise KeyError("No such commitment")
-
-        if not timestamps:
-            # An empty directory should fail too
-            raise KeyError("No such commitment")
-
-        no_valid_timestamps = True
-        for timestamp_filename in sorted(timestamps):
-            timestamp_path = commitment_path + '/' + timestamp_filename
-            with open(timestamp_path, 'rb') as timestamp_fd:
-                ctx = StreamDeserializationContext(timestamp_fd)
-                try:
-                    timestamp = Timestamp.deserialize(ctx, commitment)
-                except DeserializationError as err:
-                    logging.error("Bad commitment timestamp %r, err %r" % (timestamp_path, err))
-                    continue
-
-                no_valid_timestamps = False
-                yield timestamp
-        if no_valid_timestamps:
-            raise KeyError("No such commitment")
-
-    def __commitment_verification_path(self, commitment, verify_op):
-        """Return the path for a specific timestamp"""
-        # assuming bitcoin timestamp...
-        assert verify_op.attestation.__class__ == BitcoinBlockHeaderAttestation
-        return (self.__commitment_timestamps_path(commitment) +
-                '/btcblk-%07d-%s' % (verify_op.attestation.height, b2lx(verify_op.msg)))
+        return self.db[commitment]
 
     def add_commitment_timestamp(self, timestamp):
         """Add a timestamp for a commitment"""
-        path = self.__commitment_timestamps_path(timestamp.msg)
-        os.makedirs(path, exist_ok=True)
-
-        for msg, attestation in timestamp.all_attestations():
-            # FIXME: we shouldn't ever be asked to open a file that aleady
-            # exists, but we should handle it anyway
-            with open(self.__commitment_verification_path(msg, attestation), 'xb') as fd:
-                ctx = StreamSerializationContext(fd)
-                timestamp.serialize(ctx)
-
-                fd.flush()
-                os.fsync(fd.fileno())
+        self.db.add(timestamp)
 
 
 class Aggregator:

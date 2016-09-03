@@ -62,7 +62,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             return
 
         try:
-            timestamps = tuple(self.calendar[commitment])
+            timestamp = self.calendar[commitment]
         except KeyError:
             self.send_response(404)
             self.send_header('Content-type', 'text/plain')  # FIXME
@@ -74,8 +74,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_header('Content-type', 'text/html')  # FIXME
         self.end_headers()
 
-        for timestamp in timestamps:
-            timestamp.serialize(StreamSerializationContext(self.wfile))
+        timestamp.serialize(StreamSerializationContext(self.wfile))
 
     def do_POST(self):
         if self.path == '/digest':

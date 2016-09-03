@@ -147,6 +147,11 @@ class Stamper:
         for (block_height, block_hash) in new_blocks:
             logging.info("New block %s at height %d" % (b2lx(block_hash), block_height))
 
+            # Save commitments to disk that have reached min_confirmations
+            confirmed_tx = self.txs_waiting_for_confirmation.pop(block_height - self.min_confirmations + 1, None)
+            if confirmed_tx is not None:
+                self.__save_confirmed_timestamp_tx(confirmed_tx)
+
             # If there already are txs waiting for confirmation at this
             # block_height, there was a reorg and those pending commitments now
             # need to be added back to the pool
@@ -165,6 +170,7 @@ class Stamper:
                 block = self.proxy.getblock(block_hash)
             except KeyError:
                 # Must have been a reorg or something, return
+                logging.error("Failed to get block")
                 return
 
             # Check all potential pending txs against this block.
@@ -195,10 +201,6 @@ class Stamper:
                 # transaction was mined to right now.
                 self.last_timestamp_tx = time.time()
 
-        # Save commitments to disk that have reached min_confirmations
-        confirmed_tx = self.txs_waiting_for_confirmation.pop(self.known_blocks.best_block_height() - self.min_confirmations + 1, None)
-        if confirmed_tx is not None:
-            self.__save_confirmed_timestamp_tx(confirmed_tx)
 
         time_to_next_tx = int(self.last_timestamp_tx + self.min_tx_interval - time.time())
         if time_to_next_tx > 0:

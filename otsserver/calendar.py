@@ -9,6 +9,7 @@
 # modified, propagated, or distributed except according to the terms contained
 # in the LICENSE file.
 
+import leveldb
 import logging
 import os
 import queue
@@ -75,6 +76,65 @@ class JournalWriter(Journal):
         self.append_fd.flush()
         os.fsync(self.append_fd.fileno())
 
+class LevelDbCalendar:
+    def __init__(self, path):
+        self.db = leveldb.LevelDB(path)
+
+    def __contains__(self, msg):
+        try:
+            self.db.Get(msg)
+            return True
+        except KeyError:
+            return False
+
+    def __get_timestamp(self, msg):
+        """Get a timestamp, non-recursively"""
+        serialized_timestamp = self.db.Get(msg)
+
+        timestamp = Timestamp(msg)
+
+        ctx = BytesDeserializationContext(serialized_timestamp)
+        while ctx.fd.tell() < len(serialized_timestamp):
+            op = Op.deserialize(msg, deserialize_timestamp=False)
+            timestamp.add_op(op)
+
+        return timestamp
+
+    def __getitem__(self, msg):
+        """Get the timestamp for a given message"""
+        timestamp = self.__get_timestamp(msg)
+
+        for op in timestamp:
+            try:
+                result = op.result
+            except AttributeError:
+                continue
+
+            op.timestamp = self.__get_timestamp(op.result)
+
+        return timestamp
+
+    def __add_timestamp(self, new_timestamp, batch):
+        try:
+            existing_timestamp = self.__get_timestamp(new_timestamp.msg)
+        except KeyError:
+            existing_timestamp = Timestamp(new_timestamp.msg)
+
+        if existing_timestamp == new_timestamp:
+            # Note how because we didn't get the existing timestamp
+            # recursively, the only way old and new can be identical is if all
+            # the ops are verify operations.
+            return
+
+        modified = False
+        existing_ops = 
+        for op in new_timestamp:
+            if op 
+
+    def add(self, new_timestamp):
+        batch = self.db.WriteBatch()
+        self.__add_timestamp(new_timestamp, self.db.WriteBatch())
+        self.db.Write(batch, sync = True)
 
 class Calendar:
     def __init__(self, path):
@@ -82,6 +142,8 @@ class Calendar:
         os.makedirs(path, exist_ok=True)
         self.path = path
         self.journal = JournalWriter(path + '/journal')
+
+        self.db = leveldb.LeveLB(path + '/db')
 
         try:
             uri_path = self.path + '/uri'
@@ -98,16 +160,6 @@ class Calendar:
         commitment.attestations.add(PendingAttestation(self.uri))
 
         self.journal.submit(commitment.msg)
-
-    def __commitment_timestamps_path(self, commitment):
-        """Return the path where timestamps are stored for a given commitment"""
-        # four nesting levels
-        return (self.path + '/timestamps/' +
-                b2x(commitment[0:1]) + '/' +
-                b2x(commitment[1:2]) + '/' +
-                b2x(commitment[2:3]) + '/' +
-                b2x(commitment[3:4]) + '/' +
-                b2x(commitment))
 
     def __contains__(self, commitment):
         try:

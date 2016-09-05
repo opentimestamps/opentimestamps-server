@@ -19,6 +19,7 @@ import sys
 
 import bitcoin
 import bitcoin.core
+import bitcoin.rpc
 
 import otsserver.calendar
 import otsserver.rpc
@@ -41,8 +42,8 @@ parser.add_argument("--debug-file", type=str,
                     help="Location of the debug log")
 parser.add_argument("--debug-file-max-size", type=int,
                     dest='debug_file_max_size',
-                    default='10000000',
-                    help="Max size of the debug log in bytes (default: 10000000)")
+                    default=10000000,
+                    help="Max size of the debug log in bytes (default: %(default)d bytes")
 
 parser.add_argument("--rpc-port", type=int,
                     default=14788,
@@ -51,9 +52,6 @@ parser.add_argument("--rpc-address", type=str,
                     default='',
                     help="RPC address (default: all interfaces)")
 
-parser.add_argument("--btc-min-relay-feerate", metavar='FEEPERKB', type=float,
-                    default=0.00001,
-                    help="Minimum relay feerate (default: %(default).6f BTC/KB)")
 parser.add_argument("--btc-min-confirmations", metavar='N', type=int,
                     default=6,
                     help="Confirmations required before we save a Bitcoin timestamp permanently (default: %(default)d)")
@@ -75,8 +73,7 @@ btc_net_group.add_argument('--btc-regtest', dest='btc_net', action='store_const'
 args = parser.parse_args()
 args.parser = parser
 
-debugfile = os.path.expanduser(args.debug_file)
-handler = RotatingFileHandler(filename=debugfile, maxBytes=args.debug_file_max_size)
+handler = RotatingFileHandler(filename=os.path.expanduser(args.debug_file), maxBytes=args.debug_file_max_size)
 logger = logging.getLogger('')
 logger.addHandler(handler)
 ch = logging.StreamHandler(sys.stdout)
@@ -104,8 +101,12 @@ calendar_path = os.path.expanduser(args.calendar_path)
 calendar = otsserver.calendar.Calendar(calendar_path)
 aggregator = otsserver.calendar.Aggregator(calendar)
 
+proxy = bitcoin.rpc.Proxy()
+info = proxy.getinfo()
+relayfee = float(info['relayfee'])
+
 stamper = otsserver.stamper.Stamper(calendar,
-                                    args.btc_min_relay_feerate / 1000 * bitcoin.core.COIN,
+                                    relayfee / 1000 * bitcoin.core.COIN,
                                     args.btc_min_confirmations,
                                     args.btc_min_tx_interval,
                                     args.btc_max_fee * bitcoin.core.COIN)

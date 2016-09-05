@@ -187,6 +187,7 @@ class Stamper:
                     self.pending_commitments.remove(commitment_timestamp.msg)
                     logging.debug("Removed commitment %s from pending" % b2x(commitment_timestamp.msg))
 
+                assert self.min_confirmations > 1
                 logging.info("Success! %d commitments timestamped, now waiting for %d more confirmations" %
                              (len(tx.commitment_timestamps), self.min_confirmations - 1))
 

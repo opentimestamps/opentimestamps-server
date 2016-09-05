@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+# Copyright (C) 2016 The OpenTimestamps developers
+#
+# This file is part of the OpenTimestamps Server.
+#
+# It is subject to the license terms in the LICENSE file found in the top-level
+# directory of this distribution.
+#
+# No part of the OpenTimestamps Server, including this file, may be copied,
+# modified, propagated, or distributed except according to the terms contained
+# in the LICENSE file.
+
+import sys
+
+# Convert journal w/o MACs to journal with MACs
+
+with open(sys.argv[1], 'rb') as old_journal_fd:
+    with open(sys.argv[2], 'wb') as new_journal_fd:
+        while True:
+            commitment = old_journal_fd.read(4 + 32)
+            if not commitment:
+                break
+
+            new_journal_fd.write(commitment + b'\x00'*8)
+
+# vim:syntax=python filetype=python

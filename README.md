@@ -5,7 +5,7 @@ Requirements
 ------------
 
 python-bitcoinlib v0.6.0
-python-leveldb
+leveldb
 
 Unit tests
 ----------

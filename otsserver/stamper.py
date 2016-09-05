@@ -318,9 +318,9 @@ class Stamper:
                 sent_tx = signed_tx
 
             if self.unconfirmed_txs:
-                logging.info("Sent timestamp tx %s, replacing %s" % (b2lx(sent_tx.GetHash()), b2lx(prev_tx.GetHash())))
+                logging.info("Sent timestamp tx %s, replacing %s; %d total commitments" % (b2lx(sent_tx.GetHash()), b2lx(prev_tx.GetHash()), len(commitment_timestamps)))
             else:
-                logging.info("Sent timestamp tx %s" % b2lx(sent_tx.GetHash()))
+                logging.info("Sent timestamp tx %s; %d total commitments" % (b2lx(sent_tx.GetHash()), len(commitment_timestamps)))
 
             self.unconfirmed_txs.append(TimestampTx(sent_tx, tip_timestamp, commitment_timestamps))
 
@@ -353,7 +353,7 @@ class Stamper:
                 continue
 
             self.pending_commitments.add(commitment)
-            logging.debug('Added %s (idx %d) to pending commitments' % (b2x(commitment), idx))
+            logging.debug('Added %s (idx %d) to pending commitments; %d total' % (b2x(commitment), idx, len(self.pending_commitments)))
 
             idx += 1
 

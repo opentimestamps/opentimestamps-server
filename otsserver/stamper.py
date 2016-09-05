@@ -236,7 +236,15 @@ class Stamper:
         if prev_tx and (new_blocks or not self.unconfirmed_txs):
             # Update the most recent timestamp transaction with new commitments
             commitment_timestamps = [Timestamp(commitment) for commitment in self.pending_commitments]
-            tip_timestamp = make_merkle_tree(commitment_timestamps)
+
+            # Remember that commitment_timestamps contains raw commitments,
+            # which are longer than necessary, so we sha256 them before passing
+            # them to make_merkle_tree, which concatenates whatever it gets (or
+            # for the matter, returns what it gets if there's only one item for
+            # the tree!)
+            commitment_digest_timestamps = [stamp.ops.add(OpSHA256()) for stamp in commitment_timestamps]
+
+            tip_timestamp = make_merkle_tree(commitment_digest_timestamps)
 
             sent_tx = None
             relay_feerate = self.relay_feerate

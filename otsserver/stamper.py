@@ -287,24 +287,31 @@ class Stamper:
 
         self.proxy = bitcoin.rpc.Proxy()
 
-        idx = 0
+        try:
+            with open(self.calendar.path + '/journal.known-good', 'r') as known_good_fd:
+                idx = int(known_good_fd.read().strip())
+        except FileNotFoundError as exp:
+            idx = 0
+
         while True:
             self.__do_bitcoin()
 
             try:
                 commitment = journal[idx]
-                idx += 1
             except KeyError:
                 time.sleep(1)
                 continue
 
             # Is this commitment already stamped?
             if commitment in self.calendar:
-                logging.debug('Commitment %s already stamped' % b2x(commitment))
+                logging.debug('Commitment %s (idx %d) already stamped' % (b2x(commitment), idx))
+                idx += 1
                 continue
 
             self.pending_commitments.add(commitment)
-            logging.debug('Added %s to pending commitments' % b2x(commitment))
+            logging.debug('Added %s (idx %d) to pending commitments' % (b2x(commitment), idx))
+
+            idx += 1
 
     def __init__(self, calendar, relay_feerate, min_confirmations, min_tx_interval, max_fee):
         self.calendar = calendar

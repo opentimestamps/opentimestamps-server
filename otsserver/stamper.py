@@ -97,6 +97,43 @@ def _get_tx_fee(tx, proxy):
     value_out = sum(txout.nValue for txout in tx.vout)
     return value_in - value_out
 
+def find_unspent(proxy):
+    unspent = sorted(proxy.listunspent(1),
+                     key=lambda x: x['amount'] if x['spendable'] else 0)
+
+    if len(unspent):
+        return unspent
+
+    else:
+        logging.info("Couldn't find a confirmed output, trying unconfirmed")
+
+        # Try again with the unconfirmed transactions
+        unconfirmed_unspent = sorted(proxy.listunspent(0, 1),
+                         key=lambda x: x['amount'] if x['spendable'] else 0)
+
+        confirmed_unspent = []
+        for unspent_txout in unconfirmed_unspent:
+            txid = unspent_txout['outpoint'].hash
+            tx = proxy.getrawtransaction(txid)
+            for txin in tx.vin:
+                try:
+                    confirmed_outpoint = proxy.gettxout(txin.prevout, includemempool=False)
+
+                    # make sure this txout is from a wallet transaction, which
+                    # means we can spend it
+                    proxy.gettransaction(txin.prevout.hash)
+
+                    # All our txs will have a single input, with opt-in RBF set
+                    prevout_tx = proxy.getrawtransaction(txin.prevout.hash)
+                    if len(prevout_tx.vin) != 1 or prevout_tx.vin[0].nSequence != 0xfffffffd:
+                        continue
+                except IndexError:
+                    continue
+
+                confirmed_unspent.append({'outpoint':txin.prevout,
+                                          'amount':confirmed_outpoint['txout'].nValue})
+
+        return sorted(confirmed_unspent, key=lambda x: x['amount'])
 
 class Stamper:
     """Timestamping bot"""
@@ -212,8 +249,7 @@ class Stamper:
         prev_tx = None
         if self.pending_commitments and not self.unconfirmed_txs:
             # Find the biggest unspent output that's confirmed
-            unspent = sorted(self.proxy.listunspent(1),
-                             key=lambda x: x['amount'] if x['spendable'] else 0)
+            unspent = find_unspent(self.proxy)
 
             if not len(unspent):
                 logging.error("Can't timestamp; no spendable outputs")

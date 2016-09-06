@@ -41,8 +41,8 @@ parser.add_argument("--debug-file", type=str,
                     help="Location of the debug log")
 parser.add_argument("--debug-file-max-size", type=int,
                     dest='debug_file_max_size',
-                    default='10000000',
-                    help="Max size of the debug log in bytes (default: 10000000)")
+                    default=10000000,
+                    help="Max size of the debug log (default: %(default)d bytes) ")
 
 parser.add_argument("--rpc-port", type=int,
                     default=14788,

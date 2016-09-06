@@ -194,7 +194,7 @@ class Calendar:
 
         try:
             uri_path = self.path + '/uri'
-            with open(uri_path, 'rb') as fd:
+            with open(uri_path, 'r') as fd:
                 self.uri = fd.read().strip()
         except FileNotFoundError as err:
             logging.error('Calendar URI not yet set; %r does not exist' % uri_path)

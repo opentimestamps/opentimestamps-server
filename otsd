@@ -49,8 +49,8 @@ parser.add_argument("--rpc-port", type=int,
                     default=14788,
                     help="RPC port (default: %(default)d)")
 parser.add_argument("--rpc-address", type=str,
-                    default='',
-                    help="RPC address (default: all interfaces)")
+                    default='localhost',
+                    help="RPC address (default: %(default)s)")
 
 parser.add_argument("--btc-min-relay-feerate", metavar='FEEPERKB', type=float,
                     default=0.00001,

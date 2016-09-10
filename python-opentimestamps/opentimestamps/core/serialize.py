@@ -9,10 +9,20 @@
 # modified, propagated, or distributed except according to the terms contained
 # in the LICENSE file.
 
+import binascii
 import io
 
 class DeserializationError(Exception):
     """Base class for all errors encountered during deserialization"""
+
+class BadMagicError(DeserializationError):
+    """A magic number is incorrect
+
+    Raise this when a file format magic number is incorrect.
+    """
+    def __init__(self, expected_magic, actual_magic):
+        super().__init__('Expected magic bytes 0x%s, but got 0x%s instead' % (binascii.hexlify(expected_magic).decode(),
+                                                                              binascii.hexlify(actual_magic).decode()))
 
 class TruncationError(DeserializationError):
     """Truncated data encountered while deserializing"""
@@ -152,10 +162,12 @@ class StreamDeserializationContext(DeserializationContext):
             expected_length = self.read_varuint(None)
         return self.fd_read(expected_length)
 
-    def read_varbytes(self, max_length):
+    def read_varbytes(self, max_len, min_len=0):
         l = self.read_varuint()
-        if l > max_length:
-            raise DeserializationError('varbytes length exceeded; %d > %d' % (l, max_length))
+        if l > max_len:
+            raise DeserializationError('varbytes max length exceeded; %d > %d' % (l, max_len))
+        if l < min_len:
+            raise DeserializationError('varbytes min length not met; %d < %d' % (l, min_len))
         return self.fd_read(l)
 
 class BytesSerializationContext(StreamSerializationContext):

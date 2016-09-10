@@ -178,6 +178,15 @@ class OpReverse(UnaryOp):
         warnings.warn("OpReverse may get removed; see https://github.com/opentimestamps/python-opentimestamps/issues/5", PendingDeprecationWarning)
         return msg[::-1]
 
+@UnaryOp._register_op
+class OpHexlify(UnaryOp):
+    """Convert bytes to lower-case hexadecimal representation"""
+    TAG = b'\xf3'
+    TAG_NAME = 'hexlify'
+
+    def __call__(self, msg):
+        return binascii.hexlify(msg)
+
 
 class CryptOp(UnaryOp):
     """Cryptographic transformations
@@ -188,6 +197,8 @@ class CryptOp(UnaryOp):
     """
     __slots__ = []
     SUBCLS_BY_TAG = {}
+
+    DIGEST_LENGTH = None
 
     def __call__(self, msg):
         return hashlib.new(self.HASHLIB_NAME, bytes(msg)).digest()
@@ -217,15 +228,18 @@ class OpSHA1(CryptOp):
     TAG = b'\x02'
     TAG_NAME = 'sha1'
     HASHLIB_NAME = "sha1"
+    DIGEST_LENGTH = 20
 
 @CryptOp._register_op
 class OpRIPEMD160(CryptOp):
     TAG = b'\x03'
     TAG_NAME = 'ripemd160'
     HASHLIB_NAME = "ripemd160"
+    DIGEST_LENGTH = 20
 
 @CryptOp._register_op
 class OpSHA256(CryptOp):
     TAG = b'\x08'
     TAG_NAME = 'sha256'
     HASHLIB_NAME = "sha256"
+    DIGEST_LENGTH = 32

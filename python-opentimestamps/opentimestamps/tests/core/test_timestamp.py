@@ -131,3 +131,61 @@ class Test_DetachedTimestampFile(unittest.TestCase):
                        b'\x20' + bytes.fromhex('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855') +
                        b'\x08' +
                        b'\x00' + bytes.fromhex('83dfe30d2ef90c8e' + '07' + '06') + b'foobar'))
+
+    def test_deserialization_failures(self):
+        """Deserialization failures"""
+
+        for serialized, expected_error in ((b'', TruncationError),
+                                           (b'\x00Not a OpenTimestamps Proof \x00\xbf\x89\xe2\xe8\x84\xe8\x92\x94\x00', BadMagicError),
+                                           (b'\x00OpenTimestamps\x00\x00Proof\x00\xbf\x89\xe2\xe8\x84\xe8\x92\x94\x00' +
+                                            b'\x00' + # Not a valid length for the digest, too short
+                                            b'\x08' +
+                                            b'\x00' + bytes.fromhex('83dfe30d2ef90c8e' + '07' + '06') + b'foobar', DeserializationError),
+                                           (b'\x00OpenTimestamps\x00\x00Proof\x00\xbf\x89\xe2\xe8\x84\xe8\x92\x94\x00' +
+                                            b'\x21' + b'\x00'*33 + # Not a valid length for the digest, too long
+                                            b'\x08' +
+                                            b'\x00' + bytes.fromhex('83dfe30d2ef90c8e' + '07' + '06') + b'foobar', DeserializationError),
+                                           (b'\x00OpenTimestamps\x00\x00Proof\x00\xbf\x89\xe2\xe8\x84\xe8\x92\x94\x00' +
+                                            b'\x20' + b'\x00'*32 +
+                                            b'\x42' + # Not a valid opcode
+                                            b'\x00' + bytes.fromhex('83dfe30d2ef90c8e' + '07' + '06') + b'foobar', DeserializationError)):
+
+            with self.assertRaises(expected_error):
+                ctx = BytesDeserializationContext(serialized)
+                DetachedTimestampFile.deserialize(ctx)
+
+
+class Test_cat_sha256(unittest.TestCase):
+    def test(self):
+        left = Timestamp(b'foo')
+        right = Timestamp(b'bar')
+
+        stamp_left_right= cat_sha256(left, right)
+        self.assertEqual(stamp_left_right.msg, bytes.fromhex('c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2'))
+
+        righter = Timestamp(b'baz')
+        stamp_righter = cat_sha256(stamp_left_right, righter)
+        self.assertEqual(stamp_righter.msg, bytes.fromhex('23388b16c66f1fa37ef14af8eb081712d570813e2afb8c8ae86efa726f3b7276'))
+
+
+class Test_make_merkle_tree(unittest.TestCase):
+    def test(self):
+        def T(n, expected_merkle_root):
+            roots = [Timestamp(bytes([i])) for i in range(n)]
+            tip = make_merkle_tree(roots)
+
+            self.assertEqual(tip.msg, expected_merkle_root)
+
+            for root in roots:
+                pass # FIXME: check all roots lead to same timestamp
+
+        # Returned unchanged!
+        T(1, bytes.fromhex('00'))
+
+        # Manually calculated w/ pen-and-paper
+        T(2, bytes.fromhex('b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2'))
+        T(3, bytes.fromhex('e6aa639123d8aac95d13d365ec3779dade4b49c083a8fed97d7bfc0d89bb6a5e'))
+        T(4, bytes.fromhex('7699a4fdd6b8b6908a344f73b8f05c8e1400f7253f544602c442ff5c65504b24'))
+        T(5, bytes.fromhex('aaa9609d0c949fee22c1c941a4432f32dc1c2de939e4af25207f0dc62df0dbd8'))
+        T(6, bytes.fromhex('ebdb4245f648b7e77b60f4f8a99a6d0529d1d372f98f35478b3284f16da93c06'))
+        T(7, bytes.fromhex('ba4603a311279dea32e8958bfb660c86237157bf79e6bfee857803e811d91b8f'))

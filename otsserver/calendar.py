@@ -237,10 +237,7 @@ class Calendar:
 class Aggregator:
     def __loop(self):
         logging.info("Starting aggregator loop")
-        while self.exit_event.wait(timeout=self.commitment_interval):
-            if self.exit_event.is_set():
-                return
-
+        while not self.exit_event.wait(self.commitment_interval):
             digests = []
             done_events = []
             last_commitment = time.time()

@@ -237,8 +237,9 @@ class Calendar:
 class Aggregator:
     def __loop(self):
         logging.info("Starting aggregator loop")
-        while True:
-            time.sleep(self.commitment_interval)
+        while self.exit_event.wait(timeout=self.commitment_interval):
+            if self.exit_event.is_set():
+                return
 
             digests = []
             done_events = []
@@ -263,10 +264,11 @@ class Aggregator:
             for done_event in done_events:
                 done_event.set()
 
-    def __init__(self, calendar, commitment_interval=1):
+    def __init__(self, calendar, exit_event, commitment_interval=1):
         self.calendar = calendar
         self.commitment_interval = commitment_interval
         self.digest_queue = queue.Queue()
+        self.exit_event = exit_event
         self.thread = threading.Thread(target=self.__loop)
         self.thread.start()
 

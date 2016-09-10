@@ -337,13 +337,13 @@ class Stamper:
         except FileNotFoundError as exp:
             idx = 0
 
-        while True:
+        while not self.exit_event.is_set():
             self.__do_bitcoin()
 
             try:
                 commitment = journal[idx]
             except KeyError:
-                time.sleep(1)
+                self.exit_event.wait(1)
                 continue
 
             # Is this commitment already stamped?
@@ -357,8 +357,9 @@ class Stamper:
 
             idx += 1
 
-    def __init__(self, calendar, relay_feerate, min_confirmations, min_tx_interval, max_fee):
+    def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee):
         self.calendar = calendar
+        self.exit_event = exit_event
 
         self.relay_feerate = relay_feerate
         self.min_confirmations = min_confirmations

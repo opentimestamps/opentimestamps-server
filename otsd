@@ -12,10 +12,11 @@
 
 import argparse
 import logging
-from logging.handlers import RotatingFileHandler
+import logging.handlers
 import os
 import queue
 import sys
+import threading
 
 import bitcoin
 import bitcoin.core
@@ -76,7 +77,7 @@ args = parser.parse_args()
 args.parser = parser
 
 debugfile = os.path.expanduser(args.debug_file)
-handler = RotatingFileHandler(filename=debugfile, maxBytes=args.debug_file_max_size)
+handler = logging.handlers.RotatingFileHandler(filename=debugfile, maxBytes=args.debug_file_max_size)
 logger = logging.getLogger('')
 logger.addHandler(handler)
 ch = logging.StreamHandler(sys.stdout)
@@ -99,18 +100,24 @@ elif args.btc_net == 'regtest':
     bitcoin.SelectParams('regtest')
 
 
+exit_event = threading.Event()
+
 calendar_path = os.path.expanduser(args.calendar_path)
 
 calendar = otsserver.calendar.Calendar(calendar_path)
-aggregator = otsserver.calendar.Aggregator(calendar)
+aggregator = otsserver.calendar.Aggregator(calendar, exit_event)
 
-stamper = otsserver.stamper.Stamper(calendar,
+stamper = otsserver.stamper.Stamper(calendar, exit_event,
                                     args.btc_min_relay_feerate / 1000 * bitcoin.core.COIN,
                                     args.btc_min_confirmations,
                                     args.btc_min_tx_interval,
                                     args.btc_max_fee * bitcoin.core.COIN)
 
 server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port), aggregator, calendar)
-server.serve_forever()
+try:
+    server.serve_forever()
+except KeyboardInterrupt:
+    exit_event.set()
+    sys.exit(0)
 
 # vim:syntax=python filetype=python

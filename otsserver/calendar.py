@@ -22,8 +22,8 @@ import time
 from opentimestamps.core.notary import TimeAttestation, PendingAttestation, BitcoinBlockHeaderAttestation
 from opentimestamps.core.op import Op, OpPrepend, OpAppend, OpSHA256
 from opentimestamps.core.serialize import BytesDeserializationContext, BytesSerializationContext, StreamSerializationContext, StreamDeserializationContext, DeserializationError
-from opentimestamps.core.timestamp import Timestamp
-from opentimestamps.timestamp import make_merkle_tree, nonce_timestamp
+from opentimestamps.core.timestamp import Timestamp, make_merkle_tree
+from opentimestamps.timestamp import nonce_timestamp
 
 from bitcoin.core import b2x, b2lx
 

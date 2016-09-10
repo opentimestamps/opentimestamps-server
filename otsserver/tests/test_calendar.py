@@ -15,7 +15,6 @@ import unittest
 from bitcoin.core import *
 
 from opentimestamps.core.timestamp import *
-from opentimestamps.timestamp import make_merkle_tree
 
 from otsserver.calendar import *
 

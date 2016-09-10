@@ -26,8 +26,8 @@ from opentimestamps.bitcoin import make_timestamp_from_block
 from opentimestamps.core.notary import PendingAttestation
 from opentimestamps.core.serialize import StreamSerializationContext, StreamDeserializationContext
 from opentimestamps.core.op import OpPrepend, OpAppend, OpSHA256
-from opentimestamps.core.timestamp import Timestamp
-from opentimestamps.timestamp import make_merkle_tree, nonce_timestamp
+from opentimestamps.core.timestamp import Timestamp, make_merkle_tree
+from opentimestamps.timestamp import nonce_timestamp
 
 from otsserver.calendar import Journal
 

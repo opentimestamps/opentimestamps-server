@@ -12,7 +12,7 @@
 import binascii
 import hashlib
 
-from opentimestamps.core.op import Op, UnaryOp, CryptOp, OpSHA256, OpAppend, OpPrepend
+from opentimestamps.core.op import Op, UnaryOp, CryptOp, OpSHA256, OpAppend, OpPrepend, MsgValueError
 from opentimestamps.core.notary import TimeAttestation
 
 import opentimestamps.core.serialize
@@ -61,6 +61,12 @@ class Timestamp:
         return self.__msg
 
     def __init__(self, msg):
+        if not isinstance(msg, bytes):
+            raise TypeError("Expected msg to be bytes; got %r" % msg.__class__)
+
+        elif len(msg) > Op.MAX_MSG_LENGTH:
+            raise ValueError("Message exceeds Op length limit; %d > %d" % (len(msg), Op.MAX_MSG_LENGTH))
+
         self.__msg = bytes(msg)
         self.attestations = set()
         self.ops = OpSet(lambda op: Timestamp(op(msg)))
@@ -127,7 +133,15 @@ class Timestamp:
         Because the serialization format doesn't include the message that the
         timestamp operates on, you have to provide it so that the correct
         operation results can be calculated.
+
+        The message you provide is assumed to be correct; if it causes a op to
+        raise MsgValueError when the results are being calculated (done
+        immediately, not lazily) DeserializationError is raised instead.
         """
+
+        # FIXME: note how a lazy implementation would have different behavior
+        # with respect to deserialization errors; is this a good design?
+
         self = cls(initial_msg)
 
         def do_tag_or_attestation(tag):
@@ -137,7 +151,13 @@ class Timestamp:
 
             else:
                 op = Op.deserialize_from_tag(ctx, tag)
-                stamp = Timestamp.deserialize(ctx, op(initial_msg))
+
+                try:
+                    result = op(initial_msg)
+                except MsgValueError as exp:
+                    raise opentimestamps.core.serialize.DeserializationError("Invalid timestamp; message invalid for op %r: %r" % (op, exp))
+
+                stamp = Timestamp.deserialize(ctx, result)
                 self.ops[op] = stamp
 
         tag = ctx.read_bytes(1)
@@ -186,7 +206,7 @@ class DetachedTimestampFile:
     Contains a timestamp, along with a header and the digest of the file.
     """
 
-    HEADER_MAGIC = b'\x00OpenTimestamps\x00\x00Proof\x00\xbf\x89\xe2\xe8\x84\xe8\x92\x94\x00'
+    HEADER_MAGIC = b'\x00OpenTimestamps\x00\x00Proof\x00\xbf\x89\xe2\xe8\x84\xe8\x92\x94'
     """Header magic bytes
 
     Designed to be give the user some information in a hexdump, while being
@@ -196,6 +216,13 @@ class DetachedTimestampFile:
     MIN_FILE_DIGEST_LENGTH = 20 # 160-bit hash
     MAX_FILE_DIGEST_LENGTH = 32 # 256-bit hash
 
+    MAJOR_VERSION = 1
+
+    # While the git commit timestamps have a minor version, probably better to
+    # leave it out here: unlike Git commits round-tripping is an issue when
+    # timestamps are upgraded, and we could end up with bugs related to not
+    # saving/updating minor version numbers correctly.
+
     @property
     def file_digest(self):
         """The digest of the file that was timestamped"""
@@ -203,6 +230,10 @@ class DetachedTimestampFile:
 
     def __init__(self, file_hash_op, timestamp):
         self.file_hash_op = file_hash_op
+
+        if len(timestamp.msg) != file_hash_op.DIGEST_LENGTH:
+            raise ValueError("Timestamp message length and file_hash_op digest length differ")
+
         self.timestamp = timestamp
 
     def __repr__(self):
@@ -221,8 +252,12 @@ class DetachedTimestampFile:
     def serialize(self, ctx):
         ctx.write_bytes(self.HEADER_MAGIC)
 
-        ctx.write_varbytes(self.timestamp.msg)
+        ctx.write_varuint(self.MAJOR_VERSION)
+
         self.file_hash_op.serialize(ctx)
+        assert self.file_hash_op.DIGEST_LENGTH == len(self.timestamp.msg)
+        ctx.write_bytes(self.timestamp.msg)
+
         self.timestamp.serialize(ctx)
 
     @classmethod
@@ -232,8 +267,12 @@ class DetachedTimestampFile:
         if header_magic != cls.HEADER_MAGIC:
             raise opentimestamps.core.serialize.BadMagicError(cls.HEADER_MAGIC, header_magic)
 
-        file_hash = ctx.read_varbytes(cls.MAX_FILE_DIGEST_LENGTH, cls.MIN_FILE_DIGEST_LENGTH)
+        major = ctx.read_varuint() # FIXME: max-int limit
+        if major != cls.MAJOR_VERSION:
+            raise opentimestamps.core.serialize.UnsupportedMajorVersion("Version %d detached timestamp files are not supported" % major)
+
         file_hash_op = CryptOp.deserialize(ctx)
+        file_hash = ctx.read_bytes(file_hash_op.DIGEST_LENGTH)
         timestamp = Timestamp.deserialize(ctx, file_hash)
 
         return DetachedTimestampFile(file_hash_op, timestamp)

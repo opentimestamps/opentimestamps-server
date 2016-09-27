@@ -67,7 +67,16 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(404)
             self.send_header('Content-type', 'text/plain')
             self.end_headers()
-            self.wfile.write(b'not found')
+
+            # Pending?
+            reason = self.calendar.stamper.is_pending(commitment)
+            if reason:
+                reason = reason.encode()
+
+            else:
+                reason = b'Not found'
+
+            self.wfile.write(reason)
             return
 
         self.send_response(200)

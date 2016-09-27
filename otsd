@@ -113,6 +113,8 @@ stamper = otsserver.stamper.Stamper(calendar, exit_event,
                                     args.btc_min_tx_interval,
                                     args.btc_max_fee * bitcoin.core.COIN)
 
+calendar.stamper = stamper
+
 server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port), aggregator, calendar)
 try:
     server.serve_forever()

@@ -357,6 +357,23 @@ class Stamper:
 
             idx += 1
 
+    def is_pending(self, commitment):
+        """Return whether or not a commitment is waiting to be stamped
+
+        Returns False if not, or str reason if it is
+        """
+        if commitment in self.pending_commitments:
+            return "Pending confirmation in Bitcoin blockchain"
+
+        else:
+            for height, ttx in self.txs_waiting_for_confirmation.items():
+               for commitment_timestamp in ttx.commitment_timestamps:
+                    if commitment == commitment_timestamp.msg:
+                        return "Timestamped by transaction %s; waiting for %d confirmations" % (b2lx(ttx.tx.GetHash()), self.min_confirmations)
+
+            else:
+                return False
+
     def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee):
         self.calendar = calendar
         self.exit_event = exit_event

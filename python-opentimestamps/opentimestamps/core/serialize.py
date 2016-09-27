@@ -9,6 +9,8 @@
 # modified, propagated, or distributed except according to the terms contained
 # in the LICENSE file.
 
+"""Consensus-critical recursive descent serialization/deserialization"""
+
 import binascii
 import io
 
@@ -32,6 +34,20 @@ class UnsupportedMajorVersion(DeserializationError):
 
 class TruncationError(DeserializationError):
     """Truncated data encountered while deserializing"""
+
+class TrailingGarbageError(DeserializationError):
+    """Trailing garbage found after deserialization finished
+
+    Raised when deserialization otherwise succeeds without errors, but excess
+    data is present after the data we expected to get.
+    """
+
+class RecursionLimitError(DeserializationError):
+    """Data is too deeply nested to be deserialized
+
+    Raised when deserializing recursively defined data structures that exceed
+    the recursion limit for that particular data structure.
+    """
 
 class SerializerTypeError(TypeError):
     """Wrong type for specified serializer"""
@@ -88,6 +104,26 @@ class DeserializationContext:
         """
         raise NotImplementedError
 
+    def assert_magic(self, expected_magic):
+        """Assert the presence of magic bytes
+
+        Raises BadMagicError if the magic bytes don't match, or if the read was
+        truncated.
+
+        Note that this isn't an assertion in the Python sense: debug/production
+        does not change the behavior of this function.
+        """
+        raise NotImplementedError
+
+    def assert_eof(self):
+        """Assert that we have reached the end of the data
+
+        Raises TrailingGarbageError(msg) if the end of file has not been reached.
+
+        Note that this isn't an assertion in the Python sense: debug/production
+        does not change the behavior of this function.
+        """
+        raise NotImplementedError
 
 class StreamSerializationContext(SerializationContext):
     def __init__(self, fd):
@@ -175,6 +211,16 @@ class StreamDeserializationContext(DeserializationContext):
         if l < min_len:
             raise DeserializationError('varbytes min length not met; %d < %d' % (l, min_len))
         return self.fd_read(l)
+
+    def assert_magic(self, expected_magic):
+        actual_magic = self.fd.read(len(expected_magic))
+        if expected_magic != actual_magic:
+            raise BadMagicError(expected_magic, actual_magic)
+
+    def assert_eof(self):
+        excess = self.fd.read(1)
+        if excess:
+            raise TrailingGarbageError("Trailing garbage found after end of deserialized data")
 
 class BytesSerializationContext(StreamSerializationContext):
     def __init__(self):

@@ -14,26 +14,36 @@ import urllib.request
 import fnmatch
 
 from opentimestamps.core.timestamp import Timestamp
-from opentimestamps.core.serialize import StreamDeserializationContext
+from opentimestamps.core.serialize import BytesDeserializationContext
 
 class RemoteCalendar:
     """Remote calendar server interface"""
-    def __init__(self, url):
+
+    def __init__(self, url, user_agent="python-opentimestamps"):
         if not isinstance(url, str):
             raise TypeError("URL must be a string")
         self.url = url
+
+        self.request_headers = {"Accept": "application/vnd.opentimestamps.v1",
+                                "User-Agent": user_agent}
 
     def submit(self, digest):
         """Submit a digest to the calendar
 
         Returns a Timestamp committing to that digest
         """
-        req = urllib.request.Request(self.url + '/digest', data=digest)
+        req = urllib.request.Request(self.url + '/digest', data=digest, headers=self.request_headers)
         with urllib.request.urlopen(req) as resp:
             if resp.status != 200:
                 raise Exception("Unknown response from calendar: %d" % resp.status)
 
-            ctx = StreamDeserializationContext(resp)
+            # FIXME: Not a particularly nice way of handling this, but it'll do
+            # the job for now.
+            resp_bytes = resp.read(10000)
+            if len(resp_bytes) > 10000:
+                raise Exception("Calendar response exceeded size limit")
+
+            ctx = BytesDeserializationContext(resp_bytes)
             return Timestamp.deserialize(ctx, digest)
 
     def get_timestamp(self, commitment):
@@ -41,11 +51,19 @@ class RemoteCalendar:
 
         Raises KeyError if the calendar doesn't have that commitment
         """
-        req = urllib.request.Request(self.url + '/timestamp/' + binascii.hexlify(commitment).decode('utf8'))
+        req = urllib.request.Request(self.url + '/timestamp/' + binascii.hexlify(commitment).decode('utf8'),
+                                     headers=self.request_headers)
         try:
             with urllib.request.urlopen(req) as resp:
                 if resp.status == 200:
-                    ctx = StreamDeserializationContext(resp)
+
+                    # FIXME: Not a particularly nice way of handling this, but it'll do
+                    # the job for now.
+                    resp_bytes = resp.read(10000)
+                    if len(resp_bytes) > 10000:
+                        raise Exception("Calendar response exceeded size limit")
+
+                    ctx = BytesDeserializationContext(resp_bytes)
                     return Timestamp.deserialize(ctx, commitment)
 
                 else:

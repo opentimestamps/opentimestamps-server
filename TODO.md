@@ -68,3 +68,15 @@ virus-checkers in the transactions they submit. Segwit will make this fairly
 easy though, as we can force the tx to spend exactly one segwit input, which
 very effectively constrains what can be in the scriptSig; the timestamp won't
 contain any witness data.
+
+
+## Prefix Queries
+
+When requesting commitment timestamps clients should be allowed to request all
+commitments starting with a given prefix. This would improve privacy by
+increasing the k-anonymity set for the query. Additionally, once prefix queries
+were implemented, it'd be easy to make dummy requests for prefixes picked at
+random.
+
+Of course, having enough OpenTimestamps users that a per-second commitment
+didn't necessarily map to a single user would be a good improvement too!

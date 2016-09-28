@@ -128,6 +128,10 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
             proxy = bitcoin.rpc.Proxy()
 
+            # FIXME: Unfortunately getbalance() doesn't return the right thing;
+            # need to investigate further, but this seems to work.
+            str_wallet_balance = str(proxy._call("getbalance"))
+
             welcome_page = """\
 <html>
 <head>
@@ -153,7 +157,7 @@ You can donate to the wallet by sending funds to %s</br>
 """ % (len(self.calendar.stamper.pending_commitments),
        len(self.calendar.stamper.txs_waiting_for_confirmation),
        bitcoin.core.b2lx(proxy.getbestblockhash()), proxy.getblockcount(),
-       bitcoin.core.str_money_value(proxy.getbalance()),
+       str_wallet_balance,
        str(proxy.getaccountaddress('')))
 
             self.wfile.write(welcome_page.encode())

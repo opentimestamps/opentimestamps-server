@@ -10,8 +10,8 @@ mode.
 
 ## Requirements
 
-python-bitcoinlib v0.6.1
-leveldb
+* python-bitcoinlib v0.6.1
+* leveldb
 
 
 ## Unit tests

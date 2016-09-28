@@ -40,3 +40,31 @@ submission to another calendar.
 
 Currently visiting https://alice.btc.calendar.opentimestamps.org with a
 web-browser gets an unfriendly 404 "not found" error.
+
+
+## Collaborative Bitcoin Timestamping
+
+Currently each public calendar makes its own Bitcoin transactions; they should
+work collaboratively, so that only one transaction is used for all calendars. A
+simple way to do this would be to have a master calendar, that normally is the
+only server making Bitcoin transactions, and then have the slave calendars
+switch to making their own transactions if the master isn't responding.
+
+
+### External Bitcoin Timestamping
+
+An alternate approach would be for calendar servers to advertise merkle tips
+that they want timestamped, and then accept Bitcoin timestamps provided by
+anyone for those tips. Bitcoin timestamping functionality could then be done
+external to the public calendars, and redundancy provided by having multiple
+stampers with varying timeouts. Equally, this would allow anyone to help out
+the public infrastructure by donating a timestamp transaction (which is also a
+nice way to speed up confirmation!).
+
+We would want to apply some fairly stringent standardness checks to externally
+provided transactions though: the transaction data ends up in the timestamps,
+allowing attackers to do things like embed signatures that set off
+virus-checkers in the transactions they submit. Segwit will make this fairly
+easy though, as we can force the tx to spend exactly one segwit input, which
+very effectively constrains what can be in the scriptSig; the timestamp won't
+contain any witness data.

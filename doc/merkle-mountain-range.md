@@ -62,48 +62,6 @@ the intermediate hashes is n-1, and signatures don't even need to store the bag
 of peaks they signed.
 
 
-Divergence
-----------
-
-EDIT: none of the following is likely to be implemented, it's just not worth it
-compared to simply keeping one archive per server, but the algorithm ideas are
-kinda neat.
-
-Suppose we want have multiple servers accepting, and creating signatures for, a
-single archive. If we instead order the full list of digests submitted in some
-way, such as numerically, we find that eventually all servers will come to
-agreement provided they all have the same list of digests. Also, sub-lists of
-digests, even if the full list isn't available, are also sorted the same way.
-Thus sub-trees created from parts of the known list will be identical!
-
-You can efficiently build up trees iteratively in this way. For each new digest
-put it in the right order, then build up the new appropriate tree. For a random
-order you'll find that at height 0, on average one hash pair is broken, thus
-that incures a requirement to store an additional digest. For height 1, again
-an additional. The height of the tree is proportional to log2(n), thus the
-total storage requirement for all the trees built in this fashion is n*log2(n)
-
-Having multiple servers build these trees iteratively doesn't change the result
-significantly essentially because if they're fairly "up-to-date" with each
-other, the vast majority of the tree will be the same. Still, I haven't thought
-about this carefully.
-
-From a theoretical perspective this is great, but from a practical point of
-view needing 10 to 30 times more storage isn't exactly very good. The other
-problem is that essentially your tree now has a "rectangular" shape, so finding
-what signatures are available for what digests becomes tricky again.
-
-If you can find an ordering where "chunks" of additional digests are unlikely
-to "break up" existing trees you can get around that problem, modulo the fact
-that a malicious server can break up your ordering. (although some degree of
-trust probably exists) Time itself doesn't work, because the general case has
-multiple servers accepting digests with very similar times. You can just pick a
-random number, usually known as a UUID, to identify each server, but
-essentially you've just pushed the n*log(n) scaling up a level. You also have
-the same problems with signature lookup. This still might be a reasonable
-solution, but no sense rushing to implement it.
-
-
 Dedication
 ----------
 

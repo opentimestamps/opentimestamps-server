@@ -7,12 +7,6 @@ a proper daemon service, with all the usual init integration and logging
 functionality.
 
 
-## HTTP Caching
-
-Cache-control headers aren't currently set at all in REST responses. This is
-needed for load-balancing via HTTPS caches.
-
-
 ## Mirroring
 
 It should be possible to run a mirror calendar server that mirrors the contents

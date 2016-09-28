@@ -57,6 +57,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         except binascii.Error:
             self.send_response(400)
             self.send_header('Content-type', 'text/plain')
+            self.send_header('Cache-Control', 'public, max-age=31536000') # this will never not be an error!
             self.end_headers()
             self.wfile.write(b'commitment must be hex-encoded bytes')
             return
@@ -66,20 +67,34 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         except KeyError:
             self.send_response(404)
             self.send_header('Content-type', 'text/plain')
-            self.end_headers()
 
             # Pending?
             reason = self.calendar.stamper.is_pending(commitment)
             if reason:
                 reason = reason.encode()
 
+                # The commitment is pending, so its status will change soonish
+                # as blocks are found.
+                self.send_header('Cache-Control', 'public, max-age=60')
+
             else:
+                # The commitment isn't in this calendar at all. Clients only
+                # get specific commitments from servers, so in the current
+                # implementation there's no reason why this response would ever
+                # change.
+                self.send_header('Cache-Control', 'public, max-age=3600')
                 reason = b'Not found'
 
+            self.end_headers()
             self.wfile.write(reason)
             return
 
         self.send_response(200)
+
+        # Since only Bitcoin attestations are currently made, once a commitment
+        # is timestamped by Bitcoin this response will never change.
+        self.send_header('Cache-Control', 'public, max-age=3600')
+
         self.send_header('Content-type', 'application/octet-stream')
         self.end_headers()
 
@@ -92,6 +107,10 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         else:
             self.send_response(404)
             self.send_header('Content-type', 'text/plain')
+
+            # a 404 is only going to become not a 404 if the server is upgraded
+            self.send_header('Cache-Control', 'public, max-age=3600')
+
             self.end_headers()
             self.wfile.write(b'not found')
 
@@ -102,6 +121,10 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         else:
             self.send_response(404)
             self.send_header('Content-type', 'text/plain')
+
+            # a 404 is only going to become not a 404 if the server is upgraded
+            self.send_header('Cache-Control', 'public, max-age=3600')
+
             self.end_headers()
             self.wfile.write(b'not found')
 

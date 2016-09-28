@@ -30,12 +30,6 @@ locally. Equally, mirror servers should be able to aggregate digests for
 submission to another calendar.
 
 
-## Welcome Page
-
-Currently visiting https://alice.btc.calendar.opentimestamps.org with a
-web-browser gets an unfriendly 404 "not found" error.
-
-
 ## Collaborative Bitcoin Timestamping
 
 Currently each public calendar makes its own Bitcoin transactions; they should

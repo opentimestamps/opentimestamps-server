@@ -16,6 +16,8 @@ import socketserver
 import threading
 import time
 
+import bitcoin.core
+
 from opentimestamps.core.serialize import StreamSerializationContext
 
 
@@ -115,7 +117,48 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b'not found')
 
     def do_GET(self):
-        if self.path.startswith('/timestamp/'):
+        if self.path == '/':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+
+            # Humans are likely to be refreshing this, so keep it up-to-date
+            self.send_header('Cache-Control', 'public, max-age=1')
+
+            self.end_headers()
+
+            proxy = bitcoin.rpc.Proxy()
+
+            welcome_page = """\
+<html>
+<head>
+    <title>OpenTimestamps Calendar Server</title>
+</head>
+<body>
+<p>This is an <a href="http://www.opentimestamps.org">OpenTimestamps</a> Calendar.</p>
+
+<p>
+Pending commitments: %d</br>
+Transactions waiting for confirmation: %d</br>
+Best-block: %s, height %d</br>
+</br>
+Wallet balance: %s BTC</br>
+</p>
+
+<p>
+You can donate to the wallet by sending funds to %s</br>
+</p>
+
+</body>
+</html>
+""" % (len(self.calendar.stamper.pending_commitments),
+       len(self.calendar.stamper.txs_waiting_for_confirmation),
+       bitcoin.core.b2lx(proxy.getbestblockhash()), proxy.getblockcount(),
+       bitcoin.core.str_money_value(proxy.getbalance()),
+       str(proxy.getaccountaddress('')))
+
+            self.wfile.write(welcome_page.encode())
+
+        elif self.path.startswith('/timestamp/'):
             self.get_timestamp()
 
         else:
@@ -126,7 +169,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_header('Cache-Control', 'public, max-age=3600')
 
             self.end_headers()
-            self.wfile.write(b'not found')
+            self.wfile.write(b'Not found')
 
 
 class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):

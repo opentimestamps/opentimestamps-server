@@ -150,6 +150,7 @@ Wallet balance: %s BTC</br>
 
 <p>
 You can donate to the wallet by sending funds to %s</br>
+This address changes after every donation.
 </p>
 
 </body>

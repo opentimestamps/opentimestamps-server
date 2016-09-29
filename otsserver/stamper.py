@@ -179,7 +179,13 @@ class Stamper:
 
     def __do_bitcoin(self):
         """Do Bitcoin-related maintenance"""
-        new_blocks = self.known_blocks.update_from_proxy(self.proxy)
+
+        # FIXME: we shouldn't have to create a new proxy each time, but with
+        # current python-bitcoinlib and the RPC implementation it seems that
+        # the proxy connection can timeout w/o recovering properly.
+        proxy = bitcoin.rpc.Proxy()
+
+        new_blocks = self.known_blocks.update_from_proxy(proxy)
 
         for (block_height, block_hash) in new_blocks:
             logging.info("New block %s at height %d" % (b2lx(block_hash), block_height))
@@ -204,7 +210,7 @@ class Stamper:
             # Check if this block contains any of the pending transactions
 
             try:
-                block = self.proxy.getblock(block_hash)
+                block = proxy.getblock(block_hash)
             except KeyError:
                 # Must have been a reorg or something, return
                 logging.error("Failed to get block")
@@ -249,7 +255,7 @@ class Stamper:
         prev_tx = None
         if self.pending_commitments and not self.unconfirmed_txs:
             # Find the biggest unspent output that's confirmed
-            unspent = find_unspent(self.proxy)
+            unspent = find_unspent(proxy)
 
             if not len(unspent):
                 logging.error("Can't timestamp; no spendable outputs")
@@ -257,8 +263,8 @@ class Stamper:
 
             # For the change scriptPubKey, we can save a few bytes by using
             # a pay-to-pubkey rather than the usual pay-to-pubkeyhash
-            change_addr = self.proxy.getnewaddress()
-            change_pubkey = self.proxy.validateaddress(change_addr)['pubkey']
+            change_addr = proxy.getnewaddress()
+            change_pubkey = proxy.validateaddress(change_addr)['pubkey']
             change_scriptPubKey = CScript([change_pubkey, OP_CHECKSIG])
 
             prev_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'], change_scriptPubKey)
@@ -286,9 +292,9 @@ class Stamper:
             relay_feerate = self.relay_feerate
             while sent_tx is None:
                 unsigned_tx = self.__update_timestamp_tx(prev_tx, tip_timestamp.msg,
-                                                         self.proxy.getblockcount(), relay_feerate)
+                                                         proxy.getblockcount(), relay_feerate)
 
-                fee = _get_tx_fee(unsigned_tx, self.proxy)
+                fee = _get_tx_fee(unsigned_tx, proxy)
                 if fee is None:
                     logging.debug("Can't determine txfee of transaction; skipping")
                     return
@@ -296,14 +302,14 @@ class Stamper:
                     logging.error("Maximum txfee reached!")
                     return
 
-                r = self.proxy.signrawtransaction(unsigned_tx)
+                r = proxy.signrawtransaction(unsigned_tx)
                 if not r['complete']:
                     logging.error("Failed to sign transaction! r = %r" % r)
                     return
                 signed_tx = r['tx']
 
                 try:
-                    txid = self.proxy.sendrawtransaction(signed_tx)
+                    txid = proxy.sendrawtransaction(signed_tx)
                 except bitcoin.rpc.JSONRPCError as err:
                     if err.error['code'] == -26:
                         logging.debug("Err: %r" % err.error)
@@ -328,8 +334,6 @@ class Stamper:
         logging.info("Starting stamper loop")
 
         journal = Journal(self.calendar.path + '/journal')
-
-        self.proxy = bitcoin.rpc.Proxy()
 
         try:
             with open(self.calendar.path + '/journal.known-good', 'r') as known_good_fd:

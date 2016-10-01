@@ -10,7 +10,7 @@ mode.
 
 ## Requirements
 
-* python-bitcoinlib v0.6.1
+* python-bitcoinlib v0.7.0
 * leveldb
 
 

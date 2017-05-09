@@ -1,0 +1,39 @@
+# nginx configuration for a.pool.calendar.opentimestamps.org, as of 2017-05-09
+
+proxy_cache_path /tmp/nginx-cache levels=1:2 keys_zone=otsd:10m inactive=3600m max_size=1000m;
+
+server {
+        listen 443 default_server;
+        listen [::]:443 default_server;
+        server_name a.pool.opentimestamps.org;
+
+        root /dev/null;
+
+        location /calendar/ {
+                autoindex on;
+                alias /var/lib/otsd/calendar/exported/;
+        }
+
+
+        location / {
+        proxy_cache otsd;
+        add_header X-Proxy-Cache $upstream_cache_status always;
+
+        add_header 'Access-Control-Allow-Origin' '*';
+        add_header 'Access-Control-Allow-Methods' 'POST GET';
+
+        proxy_pass http://127.0.0.1:14788;
+        proxy_set_header Host $host;
+        }
+
+    ssl on;
+    ssl_certificate /etc/letsencrypt/live/a.pool.opentimestamps.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/a.pool.opentimestamps.org/privkey.pem;
+
+    ssl_session_timeout 5m;
+
+    ssl_ciphers 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA';
+
+    ssl_prefer_server_ciphers on;
+    ssl_dhparam /etc/ssl/private/dhparams.pem;
+}

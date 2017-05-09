@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+# Copyright (C) 2017 The OpenTimestamps developers
+#
+# This file is part of the OpenTimestamps Server.
+#
+# It is subject to the license terms in the LICENSE file found in the top-level
+# directory of this distribution.
+#
+# No part of the OpenTimestamps Server, including this file, may be copied,
+# modified, propagated, or distributed except according to the terms contained
+# in the LICENSE file.
+
+import leveldb
+import os
+import sys
+import time
+
+from bitcoin.core import b2x
+
+from opentimestamps.core.timestamp import Timestamp, make_merkle_tree
+from opentimestamps.core.op import OpAppend, OpPrepend, OpSHA256
+from opentimestamps.core.serialize import BytesSerializationContext
+from opentimestamps.core.notary import BitcoinBlockHeaderAttestation
+
+BATCH_SIZE = 100000
+
+db = leveldb.LevelDB('db/')
+
+def put_timestamp(batch, new_timestamp):
+    """Write a single timestamp, non-recursively"""
+    ctx = BytesSerializationContext()
+
+    ctx.write_varuint(len(new_timestamp.attestations))
+    for attestation in new_timestamp.attestations:
+        attestation.serialize(ctx)
+
+    ctx.write_varuint(len(new_timestamp.ops))
+    for op in new_timestamp.ops:
+        op.serialize(ctx)
+
+    batch.Put(new_timestamp.msg, ctx.getbytes())
+
+op_sha256 = OpSHA256()
+
+final_tip = None
+
+level = -1
+while True:
+    level += 1
+    digest_length = 20 if level == 0 else 32
+
+    batch = leveldb.WriteBatch()
+
+    last_batch = time.time()
+
+    print("Hashing level %d" % level)
+    with open('digests-%d' % level,'rb') as root_fd, open('digests-%d' % (level + 1),'wb') as digest_fd:
+        num_digests = 0
+        while True:
+            left = root_fd.read(digest_length)
+
+            if len(left) == 0:
+                break
+            elif len(left) != digest_length:
+                print("bad left: %r" % left)
+                sys.exit(1)
+
+            num_digests += 1
+
+            right = root_fd.read(digest_length)
+            if len(right) == 0:
+                right = left
+            elif len(right) != digest_length:
+                print("bad right: %r" % right)
+                sys.exit(1)
+
+            num_digests += 1
+
+            left_stamp  = Timestamp(left)
+            left_stamp.ops.add(OpAppend(right))
+
+            right_stamp = Timestamp(right)
+            right_stamp.ops.add(OpPrepend(left))
+
+            tip_stamp = Timestamp(left + right)
+            tip_stamp.ops.add(op_sha256)
+
+            put_timestamp(batch, left_stamp)
+            put_timestamp(batch, right_stamp)
+            put_timestamp(batch, tip_stamp)
+
+            tip_digest = tip_stamp.ops[op_sha256].msg
+            final_tip = tip_digest
+            digest_fd.write(tip_digest)
+
+            if num_digests % BATCH_SIZE == 0:
+                db.Write(batch, sync=True)
+                batch = leveldb.WriteBatch()
+
+                dt = time.time() - last_batch
+                last_batch = time.time()
+                print("written %d at level %d; %d digests/second" % (num_digests, level, BATCH_SIZE / dt))
+
+        db.Write(batch, sync=True)
+
+        print("did %d digests at level %d" % (num_digests, level))
+        if num_digests <= 2:
+            print("done at level %d" % level)
+            break
+
+
+final_tip_timestamp = Timestamp(final_tip)
+final_tip_timestamp.attestations.add(BitcoinBlockHeaderAttestation(0))
+
+batch = leveldb.WriteBatch()
+put_timestamp(batch, final_tip_timestamp)
+db.Write(batch, sync=True)
+
+# vim:syntax=python filetype=python

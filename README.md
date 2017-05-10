@@ -1,11 +1,7 @@
-# OpenTimestamps Calendar Server
+# OpenTimestamps Calendar Server - Internet Archive Edition
 
-This package provides aggregation, Bitcoin timestamping, and remote calendar
-services for OpenTimestamps clients. You don't need to run a server to use the
-OpenTimestamps protocol - public servers exist that are free to use. That said,
-running a server locally can be useful for developers of OpenTimestamps
-protocol clients, particularly with a local Bitcoin node running in regtest
-mode.
+Special-purpose (and somewhat hacky) version of the calendar server for the
+Internet Archive timestamping project.
 
 
 ## Requirements

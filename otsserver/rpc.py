@@ -1,4 +1,4 @@
-# Copyright (C) 2016 The OpenTimestamps developers
+# Copyright (C) 2016-2017 The OpenTimestamps developers
 #
 # This file is part of the OpenTimestamps Server.
 #
@@ -29,27 +29,6 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     """Length of nonce added to submitted digests"""
 
     digest_queue = None
-
-    def post_digest(self):
-        content_length = int(self.headers['Content-Length'])
-
-        if content_length > self.MAX_DIGEST_LENGTH:
-            self.send_response(400)
-            self.send_header('Content-type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(b'digest too long')
-            return
-
-        digest = self.rfile.read(content_length)
-
-        timestamp = self.aggregator.submit(digest)
-
-        self.send_response(200)
-        self.send_header('Content-type', 'application/octet-stream')
-        self.end_headers()
-
-        ctx = StreamSerializationContext(self.wfile)
-        timestamp.serialize(ctx)
 
     def get_timestamp(self):
         commitment = self.path[len('/timestamp/'):]
@@ -103,8 +82,8 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         timestamp.serialize(StreamSerializationContext(self.wfile))
 
     def do_POST(self):
-        if self.path == '/digest':
-            self.post_digest()
+        if False:
+            pass
 
         else:
             self.send_response(404)
@@ -178,10 +157,9 @@ This address changes after every donation.
 
 
 class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    def __init__(self, server_address, aggregator, calendar):
+    def __init__(self, server_address, calendar):
         class rpc_request_handler(RPCRequestHandler):
             pass
-        rpc_request_handler.aggregator = aggregator
         rpc_request_handler.calendar = calendar
 
         super().__init__(server_address, rpc_request_handler)

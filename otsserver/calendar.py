@@ -1,4 +1,4 @@
-# Copyright (C) 2016 The OpenTimestamps developers
+# Copyright (C) 2016-2017 The OpenTimestamps developers
 #
 # This file is part of the OpenTimestamps Server.
 #
@@ -27,29 +27,12 @@ from opentimestamps.timestamp import nonce_timestamp
 
 from bitcoin.core import b2x, b2lx
 
-# If you can make 64-bit hash collisions we'll let you add your junk to our
-# calendar.
-HMAC_SIZE = 8
-
-def derive_key_for_idx(key, idx, bits=32):
-    """Derive key for an index
-
-    Uses a binary tree so that parts of the tree can be efficiently revealed
-    later.
-    """
-    if not bits:
-        return key
-    else:
-        key += b'\xff' if (idx >> bits-1) & 0b1 else b'\x00'
-        hashed_key = hashlib.sha256(key).digest()
-        return derive_key_for_idx(hashed_key, idx, bits - 1)
-
 class Journal:
     """Append-only commitment storage
 
     The journal exists simply to make sure we never lose a commitment.
     """
-    COMMITMENT_SIZE = 4 + 32 + HMAC_SIZE
+    COMMITMENT_SIZE = 20
 
     def __init__(self, path):
         self.read_fd = open(path, "rb")
@@ -59,9 +42,6 @@ class Journal:
         commitment = self.read_fd.read(self.COMMITMENT_SIZE)
 
         if len(commitment) == self.COMMITMENT_SIZE:
-            # Strip off HMAC if not present
-            if commitment[-HMAC_SIZE:] == b'\x00'*HMAC_SIZE:
-                commitment = commitment[:-HMAC_SIZE]
             return commitment
         else:
             raise KeyError()
@@ -89,10 +69,7 @@ class JournalWriter(Journal):
         Returns only after the commitment is syncronized to disk.
         """
         # Pad with null HMAC if necessary
-        if len(commitment) == self.COMMITMENT_SIZE - HMAC_SIZE:
-            commitment += b'\x00'*HMAC_SIZE
-
-        elif len(commitment) != self.COMMITMENT_SIZE:
+        if len(commitment) != self.COMMITMENT_SIZE:
             raise ValueError("Journal commitments must be exactly %d bytes long" % self.COMMITMENT_SIZE)
 
         assert (self.append_fd.tell() % self.COMMITMENT_SIZE) == 0
@@ -200,28 +177,6 @@ class Calendar:
             logging.error('Calendar URI not yet set; %r does not exist' % uri_path)
             sys.exit(1)
 
-        try:
-            hmac_key_path = self.path + '/hmac-key'
-            with open(hmac_key_path, 'rb') as fd:
-                self.hmac_key = fd.read()
-        except FileNotFoundError as err:
-            logging.error('HMAC secret key not set; %r does not exist' % hmac_key_path)
-            sys.exit(1)
-
-    def submit(self, submitted_commitment):
-        idx = int(time.time())
-
-        serialized_idx = struct.pack('>L', idx)
-
-        commitment = submitted_commitment.ops.add(OpPrepend(serialized_idx))
-
-        per_idx_key = derive_key_for_idx(self.hmac_key, idx, bits=32)
-        mac = hashlib.sha256(commitment.msg + per_idx_key).digest()[0:HMAC_SIZE]
-        macced_commitment = commitment.ops.add(OpAppend(mac))
-
-        macced_commitment.attestations.add(PendingAttestation(self.uri))
-        self.journal.submit(macced_commitment.msg)
-
     def __contains__(self, commitment):
         return commitment in self.db
 
@@ -232,58 +187,3 @@ class Calendar:
     def add_commitment_timestamp(self, timestamp):
         """Add a timestamp for a commitment"""
         self.db.add(timestamp)
-
-
-class Aggregator:
-    def __loop(self):
-        logging.info("Starting aggregator loop")
-        while not self.exit_event.wait(self.commitment_interval):
-            digests = []
-            done_events = []
-            last_commitment = time.time()
-            while not self.digest_queue.empty():
-                # This should never raise the Empty exception, as we should be
-                # the only thread taking items off the queue
-                (digest, done_event) = self.digest_queue.get_nowait()
-                digests.append(digest)
-                done_events.append(done_event)
-
-            if not len(digests):
-                continue
-
-            digests_commitment = make_merkle_tree(digests)
-
-            logging.info("Aggregated %d digests under commitment %s" % (len(digests), b2x(digests_commitment.msg)))
-
-            self.calendar.submit(digests_commitment)
-
-            # Notify all requestors that the commitment is done
-            for done_event in done_events:
-                done_event.set()
-
-    def __init__(self, calendar, exit_event, commitment_interval=1):
-        self.calendar = calendar
-        self.commitment_interval = commitment_interval
-        self.digest_queue = queue.Queue()
-        self.exit_event = exit_event
-        self.thread = threading.Thread(target=self.__loop)
-        self.thread.start()
-
-    def submit(self, msg):
-        """Submit message for aggregation
-
-        Aggregator thread will aggregate the message along with all other
-        messages, and return a Timestamp
-        """
-        timestamp = Timestamp(msg)
-
-        # Add nonce to ensure requestor doesn't learn anything about other
-        # messages being committed at the same time, as well as to ensure that
-        # anything we store related to this commitment can't be controlled by
-        # them.
-        done_event = threading.Event()
-        self.digest_queue.put((nonce_timestamp(timestamp), done_event))
-
-        done_event.wait()
-
-        return timestamp

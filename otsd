@@ -105,7 +105,6 @@ exit_event = threading.Event()
 calendar_path = os.path.expanduser(args.calendar_path)
 
 calendar = otsserver.calendar.Calendar(calendar_path)
-aggregator = otsserver.calendar.Aggregator(calendar, exit_event)
 
 stamper = otsserver.stamper.Stamper(calendar, exit_event,
                                     args.btc_min_relay_feerate / 1000 * bitcoin.core.COIN,
@@ -115,7 +114,7 @@ stamper = otsserver.stamper.Stamper(calendar, exit_event,
 
 calendar.stamper = stamper
 
-server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port), aggregator, calendar)
+server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port), calendar)
 try:
     server.serve_forever()
 except KeyboardInterrupt:

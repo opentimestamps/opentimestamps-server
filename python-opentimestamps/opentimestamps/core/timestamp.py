@@ -197,11 +197,11 @@ class Timestamp:
 
         r = ""
         if len(self.attestations) > 0:
-            for attestation in self.attestations:
+            for attestation in sorted(self.attestations):
                 r += " "*indent + "verify %s" % str(attestation) + "\n"
 
         if len(self.ops) > 1:
-            for op, timestamp in self.ops.items():
+            for op, timestamp in sorted(self.ops.items()):
                 r += " "*indent + " -> " + "%s"%str(op) + "\n"
                 r += timestamp.str_tree(indent+4)
         elif len(self.ops) > 0:
@@ -345,7 +345,7 @@ def make_merkle_tree(timestamps, binop=cat_sha256):
         next_stamps = []
         for stamp in stamps:
             if prev_stamp is not None:
-                next_stamps.append(cat_sha256(prev_stamp, stamp))
+                next_stamps.append(binop(prev_stamp, stamp))
                 prev_stamp = None
             else:
                 prev_stamp = stamp

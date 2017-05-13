@@ -18,6 +18,7 @@ import time
 
 import bitcoin.core
 
+import otsserver
 from opentimestamps.core.serialize import StreamSerializationContext
 
 
@@ -138,7 +139,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     <title>OpenTimestamps Calendar Server</title>
 </head>
 <body>
-<p>This is an <a href="https://opentimestamps.org">OpenTimestamps</a> Calendar.</p>
+<p>This is an <a href="https://opentimestamps.org">OpenTimestamps</a> <a href="https://github.com/opentimestamps/opentimestamps-server">Calendar Server</a> (v%s)</p>
 
 <p>
 Pending commitments: %d</br>
@@ -149,13 +150,14 @@ Wallet balance: %s BTC</br>
 </p>
 
 <p>
-You can donate to the wallet by sending funds to %s</br>
+You can donate to the wallet by sending funds to: %s</br>
 This address changes after every donation.
 </p>
 
 </body>
 </html>
-""" % (len(self.calendar.stamper.pending_commitments),
+""" % (otsserver.__version__,
+       len(self.calendar.stamper.pending_commitments),
        len(self.calendar.stamper.txs_waiting_for_confirmation),
        bitcoin.core.b2lx(proxy.getbestblockhash()), proxy.getblockcount(),
        str_wallet_balance,

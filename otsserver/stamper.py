@@ -1,4 +1,4 @@
-# Copyright (C) 2016 The OpenTimestamps developers
+# Copyright (C) 2016-2017 The OpenTimestamps developers
 #
 # This file is part of the OpenTimestamps Server.
 #

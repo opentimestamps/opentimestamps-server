@@ -138,7 +138,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     <title>OpenTimestamps Calendar Server</title>
 </head>
 <body>
-<p>This is an <a href="http://www.opentimestamps.org">OpenTimestamps</a> Calendar.</p>
+<p>This is an <a href="https://opentimestamps.org">OpenTimestamps</a> Calendar.</p>
 
 <p>
 Pending commitments: %d</br>

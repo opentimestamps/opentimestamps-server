@@ -342,7 +342,20 @@ class Stamper:
             idx = 0
 
         while not self.exit_event.is_set():
-            self.__do_bitcoin()
+            try:
+                self.__do_bitcoin()
+            except Exception as exp:
+                # !@#$ Python.
+                #
+                # Just logging errors like this is garbage, but we don't really
+                # know all the ways that __do_bitcoin() will raise an exception
+                # so easiest just to ignore and continue onwards.
+                #
+                # Mainly Bitcoin Core has been hanging up on our RPC
+                # connection, and python-bitcoinlib doesn't have great handling
+                # of that. In our case we should be safe to just retry as
+                # __do_bitcoin() is fairly self-contained.
+                logging.error("__do_bitcoin() failed: %r" % exp)
 
             try:
                 commitment = journal[idx]

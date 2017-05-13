@@ -34,7 +34,6 @@ from otsserver.calendar import Journal
 KnownBlock = collections.namedtuple('KnownBlock', ['height', 'hash'])
 TimestampTx = collections.namedtuple('TimestampTx', ['tx', 'tip_timestamp', 'commitment_timestamps'])
 
-
 class KnownBlocks:
     """Maintain a list of known blocks"""
 
@@ -171,8 +170,7 @@ class Stamper:
 
     def __save_confirmed_timestamp_tx(self, confirmed_tx):
         """Save a fully confirmed timestamp to disk"""
-        for timestamp in confirmed_tx.commitment_timestamps:
-            self.calendar.add_commitment_timestamp(timestamp)
+        self.calendar.add_commitment_timestamps(confirmed_tx.commitment_timestamps)
         logging.info("tx %s fully confirmed, %d timestamps added to calendar" %
                      (b2lx(confirmed_tx.tx.GetHash()),
                       len(confirmed_tx.commitment_timestamps)))
@@ -286,7 +284,9 @@ class Stamper:
             # the tree!)
             commitment_digest_timestamps = [stamp.ops.add(OpSHA256()) for stamp in commitment_timestamps]
 
+            logging.debug("Making merkle tree")
             tip_timestamp = make_merkle_tree(commitment_digest_timestamps)
+            logging.debug("Done making merkle tree")
 
             sent_tx = None
             relay_feerate = self.relay_feerate
@@ -369,10 +369,15 @@ class Stamper:
                 idx += 1
                 continue
 
-            self.pending_commitments.add(commitment)
-            logging.debug('Added %s (idx %d) to pending commitments; %d total' % (b2x(commitment), idx, len(self.pending_commitments)))
+            elif len(self.pending_commitments) < self.max_pending:
+                self.pending_commitments.add(commitment)
+                logging.debug('Added %s (idx %d) to pending commitments; %d total' % (b2x(commitment), idx, len(self.pending_commitments)))
 
-            idx += 1
+                idx += 1
+
+            else:
+                # Ensure we don't busy-loop
+                time.sleep(1)
 
     def is_pending(self, commitment):
         """Return whether or not a commitment is waiting to be stamped
@@ -391,7 +396,7 @@ class Stamper:
             else:
                 return False
 
-    def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee):
+    def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee, max_pending):
         self.calendar = calendar
         self.exit_event = exit_event
 
@@ -400,6 +405,7 @@ class Stamper:
         assert self.min_confirmations > 0
         self.min_tx_interval = min_tx_interval
         self.max_fee = max_fee
+        self.max_pending = max_pending
 
         self.known_blocks = KnownBlocks()
         self.unconfirmed_txs = []

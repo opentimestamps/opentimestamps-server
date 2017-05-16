@@ -188,10 +188,21 @@ class LevelDbCalendar:
     def add_timestamps(self, new_timestamps):
         batch = leveldb.WriteBatch()
         batch_cache = {}
+
+        last = time.time()
+        n = 0
         for new_timestamp in new_timestamps:
-            logging.debug("Adding timestamp %r to LevelDB calendar" % new_timestamp)
             self.__add_timestamp(new_timestamp, batch, batch_cache)
+            n += 1
+
+            if n % 10000 == 0:
+                now = time.time()
+                logging.debug("Added %d timestamps to LevelDB; %f stamps/second" %
+                                (n + 1, 10000.0 / (now - last)))
+                last = now
+
         self.db.Write(batch, sync = True)
+        logging.debug("Done LevelDbCalendar.add_timestamps(), added %d timestamps total" % n)
 
 class Calendar:
     def __init__(self, path):
@@ -239,9 +250,9 @@ class Calendar:
         """Get commitment timestamps(s)"""
         return self.db[commitment]
 
-    def add_commitment_timestamps(self, timestamps):
-        """Add a timestamp for a commitment"""
-        self.db.add_timestamps(timestamps)
+    def add_commitment_timestamps(self, new_timestamps):
+        """Add timestamps"""
+        self.db.add_timestamps(new_timestamps)
 
 
 class Aggregator:

@@ -346,6 +346,23 @@ class Stamper:
             idx = 0
 
         while not self.exit_event.is_set():
+            # Get all pending commitments
+            while len(self.pending_commitments) < self.max_pending:
+                try:
+                    commitment = journal[idx]
+                except KeyError:
+                    break
+
+                # Is this commitment already stamped?
+                if commitment not in self.calendar:
+                    self.pending_commitments.add(commitment)
+                    logging.debug('Added %s (idx %d) to pending commitments; %d total' % (b2x(commitment), idx, len(self.pending_commitments)))
+                else:
+                    if idx % 1000 == 0:
+                        logging.debug('Commitment at idx %d already stamped' % idx)
+
+                idx += 1
+
             try:
                 self.__do_bitcoin()
             except Exception as exp:
@@ -361,27 +378,7 @@ class Stamper:
                 # __do_bitcoin() is fairly self-contained.
                 logging.error("__do_bitcoin() failed: %r" % exp)
 
-            try:
-                commitment = journal[idx]
-            except KeyError:
-                self.exit_event.wait(1)
-                continue
-
-            # Is this commitment already stamped?
-            if commitment in self.calendar:
-                logging.debug('Commitment %s (idx %d) already stamped' % (b2x(commitment), idx))
-                idx += 1
-                continue
-
-            elif len(self.pending_commitments) < self.max_pending:
-                self.pending_commitments.add(commitment)
-                logging.debug('Added %s (idx %d) to pending commitments; %d total' % (b2x(commitment), idx, len(self.pending_commitments)))
-
-                idx += 1
-
-            else:
-                # Ensure we don't busy-loop
-                time.sleep(1)
+            self.exit_event.wait(1)
 
     def is_pending(self, commitment):
         """Return whether or not a commitment is waiting to be stamped

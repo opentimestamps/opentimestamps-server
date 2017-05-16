@@ -288,6 +288,10 @@ class Stamper:
             tip_timestamp = make_merkle_tree(commitment_digest_timestamps)
             logging.debug("Done making merkle tree")
 
+            # make_merkle_tree() seems to take long enough on really big adds
+            # that the proxy dies
+            proxy = bitcoin.rpc.Proxy()
+
             sent_tx = None
             relay_feerate = self.relay_feerate
             while sent_tx is None:

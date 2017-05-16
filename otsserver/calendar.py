@@ -130,7 +130,7 @@ class LevelDbCalendar:
 
         return timestamp
 
-    def __put_timestamp(self, new_timestamp, batch):
+    def __put_timestamp(self, new_timestamp, batch, batch_cache):
         """Write a single timestamp, non-recursively"""
         ctx = BytesSerializationContext()
 
@@ -143,6 +143,7 @@ class LevelDbCalendar:
             op.serialize(ctx)
 
         batch.Put(new_timestamp.msg, ctx.getbytes())
+        batch_cache[new_timestamp.msg] = new_timestamp
 
     def __getitem__(self, msg):
         """Get the timestamp for a given message"""
@@ -153,11 +154,17 @@ class LevelDbCalendar:
 
         return timestamp
 
-    def __add_timestamp(self, new_timestamp, batch):
+    def __add_timestamp(self, new_timestamp, batch, batch_cache):
+        existing_timestamp = None
         try:
-            existing_timestamp = self.__get_timestamp(new_timestamp.msg)
+            if new_timestamp.msg in batch_cache:
+                existing_timestamp = batch_cache[new_timestamp.msg]
+            else:
+                existing_timestamp = self.__get_timestamp(new_timestamp.msg)
+
         except KeyError:
             existing_timestamp = Timestamp(new_timestamp.msg)
+
         else:
             if existing_timestamp == new_timestamp:
                 # Note how because we didn't get the existing timestamp
@@ -174,15 +181,16 @@ class LevelDbCalendar:
             existing_timestamp.ops.add(new_op)
 
             # Add the results timestamp to the calendar
-            self.__add_timestamp(new_op_stamp, batch)
+            self.__add_timestamp(new_op_stamp, batch, batch_cache)
 
-        self.__put_timestamp(existing_timestamp, batch)
+        self.__put_timestamp(existing_timestamp, batch, batch_cache)
 
     def add_timestamps(self, new_timestamps):
         batch = leveldb.WriteBatch()
+        batch_cache = {}
         for new_timestamp in new_timestamps:
             logging.debug("Adding timestamp %r to LevelDB calendar" % new_timestamp)
-            self.__add_timestamp(new_timestamp, batch)
+            self.__add_timestamp(new_timestamp, batch, batch_cache)
         self.db.Write(batch, sync = True)
 
 class Calendar:

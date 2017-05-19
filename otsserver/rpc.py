@@ -67,19 +67,19 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         try:
             timestamp = self.calendar[commitment]
         except KeyError:
-            self.send_response(404)
-            self.send_header('Content-type', 'text/plain')
 
             # Pending?
             reason = self.calendar.stamper.is_pending(commitment)
             if reason:
                 reason = reason.encode()
 
+                self.send_response(202)
                 # The commitment is pending, so its status will change soonish
                 # as blocks are found.
                 self.send_header('Cache-Control', 'public, max-age=60')
 
             else:
+                self.send_response(404)
                 # The commitment isn't in this calendar at all. Clients only
                 # get specific commitments from servers, so in the current
                 # implementation there's no reason why this response would ever
@@ -87,6 +87,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
                 self.send_header('Cache-Control', 'public, max-age=3600')
                 reason = b'Not found'
 
+            self.send_header('Content-type', 'text/plain')
             self.end_headers()
             self.wfile.write(reason)
             return

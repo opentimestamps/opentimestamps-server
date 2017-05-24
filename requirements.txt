@@ -1,0 +1,4 @@
+python-bitcoinlib>=0.7.0
+GitPython>=2.0.8
+leveldb>=0.20
+pysha3>=1.0.2

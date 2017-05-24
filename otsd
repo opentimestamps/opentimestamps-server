@@ -80,6 +80,10 @@ btc_net_group.add_argument('--btc-regtest', dest='btc_net', action='store_const'
 args = parser.parse_args()
 args.parser = parser
 
+directory = os.path.expanduser("~/.otsd")
+if not os.path.exists(directory):
+    os.makedirs(directory)
+
 debugfile = os.path.expanduser(args.debug_file)
 handler = logging.handlers.RotatingFileHandler(filename=debugfile, maxBytes=args.debug_file_max_size)
 logger = logging.getLogger('')

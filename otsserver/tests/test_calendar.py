@@ -30,7 +30,7 @@ class Test_LevelDbCalendar(unittest.TestCase):
             t = Timestamp(b'foo')
 
             self.assertNotIn(b'foo', cal)
-            cal.add(t)
+            cal.add_timestamps([t])
             self.assertIn(b'foo', cal)
 
     def test_chain_timestamp(self):
@@ -42,7 +42,7 @@ class Test_LevelDbCalendar(unittest.TestCase):
             t2 = t1.ops.add(OpAppend(b'bar'))
             t3 = t2.ops.add(OpAppend(b'baz'))
 
-            cal.add(t1)
+            cal.add_timestamps([t1])
             self.assertIn(b'foo', cal)
             self.assertIn(b'foobar', cal)
             self.assertIn(b'foobarbaz', cal)
@@ -59,7 +59,7 @@ class Test_LevelDbCalendar(unittest.TestCase):
             merkle_tip = make_merkle_tree(roots)
 
             for root in roots:
-                cal.add(root)
+                cal.add_timestamps([root])
 
                 self.assertIn(merkle_tip.msg, cal)
 

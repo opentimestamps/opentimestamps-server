@@ -130,7 +130,7 @@ class LevelDbCalendar:
 
         return timestamp
 
-    def __put_timestamp(self, new_timestamp, batch):
+    def __put_timestamp(self, new_timestamp, batch, batch_cache):
         """Write a single timestamp, non-recursively"""
         ctx = BytesSerializationContext()
 
@@ -143,6 +143,7 @@ class LevelDbCalendar:
             op.serialize(ctx)
 
         batch.Put(new_timestamp.msg, ctx.getbytes())
+        batch_cache[new_timestamp.msg] = new_timestamp
 
     def __getitem__(self, msg):
         """Get the timestamp for a given message"""
@@ -153,11 +154,17 @@ class LevelDbCalendar:
 
         return timestamp
 
-    def __add_timestamp(self, new_timestamp, batch):
+    def __add_timestamp(self, new_timestamp, batch, batch_cache):
+        existing_timestamp = None
         try:
-            existing_timestamp = self.__get_timestamp(new_timestamp.msg)
+            if new_timestamp.msg in batch_cache:
+                existing_timestamp = batch_cache[new_timestamp.msg]
+            else:
+                existing_timestamp = self.__get_timestamp(new_timestamp.msg)
+
         except KeyError:
             existing_timestamp = Timestamp(new_timestamp.msg)
+
         else:
             if existing_timestamp == new_timestamp:
                 # Note how because we didn't get the existing timestamp
@@ -174,14 +181,28 @@ class LevelDbCalendar:
             existing_timestamp.ops.add(new_op)
 
             # Add the results timestamp to the calendar
-            self.__add_timestamp(new_op_stamp, batch)
+            self.__add_timestamp(new_op_stamp, batch, batch_cache)
 
-        self.__put_timestamp(existing_timestamp, batch)
+        self.__put_timestamp(existing_timestamp, batch, batch_cache)
 
-    def add(self, new_timestamp):
+    def add_timestamps(self, new_timestamps):
         batch = leveldb.WriteBatch()
-        self.__add_timestamp(new_timestamp, batch)
+        batch_cache = {}
+
+        last = time.time()
+        n = 0
+        for new_timestamp in new_timestamps:
+            self.__add_timestamp(new_timestamp, batch, batch_cache)
+            n += 1
+
+            if n % 10000 == 0:
+                now = time.time()
+                logging.debug("Added %d timestamps to LevelDB; %f stamps/second" %
+                                (n, 10000.0 / (now - last)))
+                last = now
+
         self.db.Write(batch, sync = True)
+        logging.debug("Done LevelDbCalendar.add_timestamps(), added %d timestamps total" % n)
 
 class Calendar:
     def __init__(self, path):
@@ -229,9 +250,9 @@ class Calendar:
         """Get commitment timestamps(s)"""
         return self.db[commitment]
 
-    def add_commitment_timestamp(self, timestamp):
-        """Add a timestamp for a commitment"""
-        self.db.add(timestamp)
+    def add_commitment_timestamps(self, new_timestamps):
+        """Add timestamps"""
+        self.db.add_timestamps(new_timestamps)
 
 
 class Aggregator:

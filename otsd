@@ -52,6 +52,10 @@ parser.add_argument("--rpc-address", type=str,
                     default='localhost',
                     help="RPC address (default: %(default)s)")
 
+parser.add_argument("--max-pending", type=int,
+                    default=100000,
+                    help="Maximum number of pending commitments to timestamp at a time (default: %(default)s)")
+
 parser.add_argument("--btc-min-relay-feerate", metavar='FEEPERKB', type=float,
                     default=0.00001,
                     help="Minimum relay feerate (default: %(default).6f BTC/KB)")
@@ -115,7 +119,8 @@ stamper = otsserver.stamper.Stamper(calendar, exit_event,
                                     args.btc_min_relay_feerate / 1000 * bitcoin.core.COIN,
                                     args.btc_min_confirmations,
                                     args.btc_min_tx_interval,
-                                    args.btc_max_fee * bitcoin.core.COIN)
+                                    args.btc_max_fee * bitcoin.core.COIN,
+                                    args.max_pending)
 
 calendar.stamper = stamper
 

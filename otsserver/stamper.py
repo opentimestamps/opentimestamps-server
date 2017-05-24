@@ -1,4 +1,4 @@
-# Copyright (C) 2016 The OpenTimestamps developers
+# Copyright (C) 2016-2017 The OpenTimestamps developers
 #
 # This file is part of the OpenTimestamps Server.
 #
@@ -33,7 +33,6 @@ from otsserver.calendar import Journal
 
 KnownBlock = collections.namedtuple('KnownBlock', ['height', 'hash'])
 TimestampTx = collections.namedtuple('TimestampTx', ['tx', 'tip_timestamp', 'commitment_timestamps'])
-
 
 class KnownBlocks:
     """Maintain a list of known blocks"""
@@ -171,8 +170,7 @@ class Stamper:
 
     def __save_confirmed_timestamp_tx(self, confirmed_tx):
         """Save a fully confirmed timestamp to disk"""
-        for timestamp in confirmed_tx.commitment_timestamps:
-            self.calendar.add_commitment_timestamp(timestamp)
+        self.calendar.add_commitment_timestamps(confirmed_tx.commitment_timestamps)
         logging.info("tx %s fully confirmed, %d timestamps added to calendar" %
                      (b2lx(confirmed_tx.tx.GetHash()),
                       len(confirmed_tx.commitment_timestamps)))
@@ -286,7 +284,13 @@ class Stamper:
             # the tree!)
             commitment_digest_timestamps = [stamp.ops.add(OpSHA256()) for stamp in commitment_timestamps]
 
+            logging.debug("Making merkle tree")
             tip_timestamp = make_merkle_tree(commitment_digest_timestamps)
+            logging.debug("Done making merkle tree")
+
+            # make_merkle_tree() seems to take long enough on really big adds
+            # that the proxy dies
+            proxy = bitcoin.rpc.Proxy()
 
             sent_tx = None
             relay_feerate = self.relay_feerate
@@ -342,24 +346,39 @@ class Stamper:
             idx = 0
 
         while not self.exit_event.is_set():
-            self.__do_bitcoin()
+            # Get all pending commitments
+            while len(self.pending_commitments) < self.max_pending:
+                try:
+                    commitment = journal[idx]
+                except KeyError:
+                    break
+
+                # Is this commitment already stamped?
+                if commitment not in self.calendar:
+                    self.pending_commitments.add(commitment)
+                    logging.debug('Added %s (idx %d) to pending commitments; %d total' % (b2x(commitment), idx, len(self.pending_commitments)))
+                else:
+                    if idx % 1000 == 0:
+                        logging.debug('Commitment at idx %d already stamped' % idx)
+
+                idx += 1
 
             try:
-                commitment = journal[idx]
-            except KeyError:
-                self.exit_event.wait(1)
-                continue
+                self.__do_bitcoin()
+            except Exception as exp:
+                # !@#$ Python.
+                #
+                # Just logging errors like this is garbage, but we don't really
+                # know all the ways that __do_bitcoin() will raise an exception
+                # so easiest just to ignore and continue onwards.
+                #
+                # Mainly Bitcoin Core has been hanging up on our RPC
+                # connection, and python-bitcoinlib doesn't have great handling
+                # of that. In our case we should be safe to just retry as
+                # __do_bitcoin() is fairly self-contained.
+                logging.error("__do_bitcoin() failed: %r" % exp)
 
-            # Is this commitment already stamped?
-            if commitment in self.calendar:
-                logging.debug('Commitment %s (idx %d) already stamped' % (b2x(commitment), idx))
-                idx += 1
-                continue
-
-            self.pending_commitments.add(commitment)
-            logging.debug('Added %s (idx %d) to pending commitments; %d total' % (b2x(commitment), idx, len(self.pending_commitments)))
-
-            idx += 1
+            self.exit_event.wait(1)
 
     def is_pending(self, commitment):
         """Return whether or not a commitment is waiting to be stamped
@@ -378,7 +397,7 @@ class Stamper:
             else:
                 return False
 
-    def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee):
+    def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee, max_pending):
         self.calendar = calendar
         self.exit_event = exit_event
 
@@ -387,6 +406,7 @@ class Stamper:
         assert self.min_confirmations > 0
         self.min_tx_interval = min_tx_interval
         self.max_fee = max_fee
+        self.max_pending = max_pending
 
         self.known_blocks = KnownBlocks()
         self.unconfirmed_txs = []

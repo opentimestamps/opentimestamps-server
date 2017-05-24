@@ -1,4 +1,4 @@
-# Copyright (C) 2016 The OpenTimestamps developers
+# Copyright (C) 2017 The OpenTimestamps developers
 #
 # This file is part of the OpenTimestamps Server.
 #
@@ -8,3 +8,5 @@
 # No part of the OpenTimestamps Server including this file, may be copied,
 # modified, propagated, or distributed except according to the terms contained
 # in the LICENSE file.
+
+__version__ = "0.1.1-PENDING"

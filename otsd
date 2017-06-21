@@ -86,6 +86,8 @@ if not os.path.exists(directory):
 
 debugfile = os.path.expanduser(args.debug_file)
 handler = logging.handlers.RotatingFileHandler(filename=debugfile, maxBytes=args.debug_file_max_size)
+fmt = logging.Formatter("%(asctime)-15s %(message)s")
+handler.setFormatter(fmt)
 logger = logging.getLogger('')
 logger.addHandler(handler)
 ch = logging.StreamHandler(sys.stdout)

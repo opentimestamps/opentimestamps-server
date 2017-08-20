@@ -26,9 +26,6 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     MAX_DIGEST_LENGTH = 64
     """Largest digest that can be POSTed for timestamping"""
 
-    NONCE_LENGTH = 16
-    """Length of nonce added to submitted digests"""
-
     digest_queue = None
 
     def post_digest(self):

@@ -328,7 +328,8 @@ class Stamper:
                 sent_tx = signed_tx
 
             if self.unconfirmed_txs:
-                logging.info("Sent timestamp tx %s, replacing %s; %d total commitments" % (b2lx(sent_tx.GetHash()), b2lx(prev_tx.GetHash()), len(commitment_timestamps)))
+                logging.info("Sent timestamp tx %s, replacing %s; %d total commitments; %d prior tx versions" %
+                                (b2lx(sent_tx.GetHash()), b2lx(prev_tx.GetHash()), len(commitment_timestamps), len(self.unconfirmed_txs)))
             else:
                 logging.info("Sent timestamp tx %s; %d total commitments" % (b2lx(sent_tx.GetHash()), len(commitment_timestamps)))
 

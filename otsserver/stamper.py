@@ -293,11 +293,13 @@ class Stamper:
                 logging.error("Can't timestamp; no spendable outputs")
                 return
 
-            # For the change scriptPubKey, we can save a few bytes by using
-            # a pay-to-pubkey rather than the usual pay-to-pubkeyhash
-            change_addr = proxy.getnewaddress()
-            change_pubkey = proxy.validateaddress(change_addr)['pubkey']
-            change_scriptPubKey = CScript([change_pubkey, OP_CHECKSIG])
+            change_scriptPubKey = self.change_scriptPubKey
+            if change_scriptPubKey is None:
+                # For the change scriptPubKey, we can save a few bytes by using
+                # a pay-to-pubkey rather than the usual pay-to-pubkeyhash
+                change_addr = proxy.getnewaddress()
+                change_pubkey = proxy.validateaddress(change_addr)['pubkey']
+                change_scriptPubKey = CScript([change_pubkey, OP_CHECKSIG])
 
             prev_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'], change_scriptPubKey)
 
@@ -416,12 +418,12 @@ class Stamper:
             for height, ttx in self.txs_waiting_for_confirmation.items():
                for commitment_timestamp in ttx.commitment_timestamps:
                     if commitment == commitment_timestamp.msg:
-                        return "Timestamped by transaction %s; waiting for %d confirmations" % (b2lx(ttx.tx.GetHash()), self.min_confirmations)
+                        return "Timestamped by transaction %s; waiting for %d confirmations" % (b2lx(ttx.tx.GetTxid()), self.min_confirmations)
 
             else:
                 return False
 
-    def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee, max_pending):
+    def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee, max_pending, change_scriptPubKey):
         self.calendar = calendar
         self.exit_event = exit_event
 
@@ -431,6 +433,7 @@ class Stamper:
         self.min_tx_interval = min_tx_interval
         self.max_fee = max_fee
         self.max_pending = max_pending
+        self.change_scriptPubKey = change_scriptPubKey
 
         self.known_blocks = KnownBlocks()
         self.unconfirmed_txs = []

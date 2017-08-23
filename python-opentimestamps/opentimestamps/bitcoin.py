@@ -46,7 +46,7 @@ def make_timestamp_from_block(digest, block, blockheight, *, max_tx_size=1000):
     prefix = None
     suffix = None
     for tx in block.vtx:
-        serialized_tx = tx.serialize()
+        serialized_tx = tx.serialize(params={'include_witness':False})
 
         if len(serialized_tx) > len_smallest_tx_found:
             continue
@@ -72,19 +72,22 @@ def make_timestamp_from_block(digest, block, blockheight, *, max_tx_size=1000):
     prefix_stamp = digest_timestamp.ops.add(OpPrepend(prefix))
     txid_stamp = cat_sha256d(prefix_stamp, suffix)
 
-    assert commitment_tx.GetHash() == txid_stamp.msg
+    assert commitment_tx.GetTxid() == txid_stamp.msg
 
     # Create the txid list, with our commitment txid op in the appropriate
     # place
     block_txid_stamps = []
     for tx in block.vtx:
-        if tx.GetHash() != txid_stamp.msg:
-            block_txid_stamps.append(Timestamp(tx.GetHash()))
+        if tx.GetTxid() != txid_stamp.msg:
+            block_txid_stamps.append(Timestamp(tx.GetTxid()))
         else:
             block_txid_stamps.append(txid_stamp)
 
     # Build the merkle tree
     merkleroot_stamp = __make_btc_block_merkle_tree(block_txid_stamps)
+    assert merkleroot_stamp.msg == block.hashMerkleRoot
+
+    # Make sure the merkleroot actually matches
     assert merkleroot_stamp.msg == block.hashMerkleRoot
 
     attestation = BitcoinBlockHeaderAttestation(blockheight)

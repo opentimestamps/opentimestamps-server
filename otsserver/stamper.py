@@ -19,7 +19,7 @@ import time
 
 import bitcoin.rpc
 
-from bitcoin.core import b2lx, b2x, CTxIn, CTxOut, CTransaction, str_money_value
+from bitcoin.core import COIN, b2lx, b2x, CTxIn, CTxOut, CTransaction, str_money_value
 from bitcoin.core.script import CScript, OP_RETURN, OP_CHECKSIG
 
 from opentimestamps.bitcoin import make_timestamp_from_block
@@ -105,8 +105,12 @@ def _get_tx_fee(tx, proxy):
     return value_in - value_out
 
 def find_unspent(proxy):
-    unspent = sorted(proxy.listunspent(1),
-                     key=lambda x: x['amount'] if x['spendable'] else 0)
+    def sort_filter_unspent(unspent):
+        DUST = 0.001 * COIN
+        return sorted(filter(lambda x: x['amount'] > DUST and x['spendable'], unspent),
+                      key=lambda x: x['amount'])
+
+    unspent = sort_filter_unspent(proxy.listunspent(1))
 
     if len(unspent):
         return unspent
@@ -115,8 +119,7 @@ def find_unspent(proxy):
         logging.info("Couldn't find a confirmed output, trying unconfirmed")
 
         # Try again with the unconfirmed transactions
-        unconfirmed_unspent = sorted(proxy.listunspent(0, 1),
-                         key=lambda x: x['amount'] if x['spendable'] else 0)
+        unconfirmed_unspent = sort_filter_unspent(proxy.listunspent(0, 1))
 
         confirmed_unspent = []
         for unspent_txout in unconfirmed_unspent:

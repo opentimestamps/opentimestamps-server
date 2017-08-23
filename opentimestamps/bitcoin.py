@@ -85,6 +85,7 @@ def make_timestamp_from_block(digest, block, blockheight, *, max_tx_size=1000):
 
     # Build the merkle tree
     merkleroot_stamp = __make_btc_block_merkle_tree(block_txid_stamps)
+    assert merkleroot_stamp.msg == block.hashMerkleRoot
 
     attestation = BitcoinBlockHeaderAttestation(blockheight)
     merkleroot_stamp.attestations.add(attestation)

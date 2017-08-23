@@ -183,7 +183,7 @@ class Stamper:
         """Save a fully confirmed timestamp to disk"""
         self.calendar.add_commitment_timestamps(confirmed_tx.commitment_timestamps)
         logging.info("tx %s fully confirmed, %d timestamps added to calendar" %
-                     (b2lx(confirmed_tx.tx.GetHash()),
+                     (b2lx(confirmed_tx.tx.GetTxid()),
                       len(confirmed_tx.commitment_timestamps)))
 
     def __pending_to_merkle_tree(self, n):
@@ -229,7 +229,7 @@ class Stamper:
                 # FIXME: the reorged transaction might get mined in another
                 # block, so just adding the commitments for it back to the pool
                 # isn't ideal, but it is safe
-                logging.info('tx %s at height %d removed by reorg, adding %d commitments back to pending' % (b2lx(reorged_tx.tx.GetHash()), block_height, len(reorged_tx.commitment_timestamps)))
+                logging.info('tx %s at height %d removed by reorg, adding %d commitments back to pending' % (b2lx(reorged_tx.tx.GetTxid()), block_height, len(reorged_tx.commitment_timestamps)))
                 for reorged_commitment_timestamp in reorged_tx.commitment_timestamps:
                     self.pending_commitments.add(reorged_commitment_timestamp.msg)
 
@@ -352,9 +352,9 @@ class Stamper:
 
             if self.unconfirmed_txs:
                 logging.info("Sent timestamp tx %s, replacing %s; %d total commitments; %d prior tx versions" %
-                                (b2lx(sent_tx.GetHash()), b2lx(prev_tx.GetHash()), len(commitment_timestamps), len(self.unconfirmed_txs)))
+                                (b2lx(sent_tx.GetTxid()), b2lx(prev_tx.GetTxid()), len(commitment_timestamps), len(self.unconfirmed_txs)))
             else:
-                logging.info("Sent timestamp tx %s; %d total commitments" % (b2lx(sent_tx.GetHash()), len(commitment_timestamps)))
+                logging.info("Sent timestamp tx %s; %d total commitments" % (b2lx(sent_tx.GetTxid()), len(commitment_timestamps)))
 
             self.unconfirmed_txs.append(UnconfirmedTimestampTx(sent_tx, tip_timestamp, len(commitment_timestamps)))
 

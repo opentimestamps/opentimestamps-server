@@ -17,6 +17,7 @@ import threading
 import time
 
 import bitcoin.core
+from bitcoin.core import b2lx, b2x
 
 import otsserver
 from opentimestamps.core.serialize import StreamSerializationContext
@@ -141,6 +142,8 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 <p>
 Pending commitments: %d</br>
 Transactions waiting for confirmation: %d</br>
+Most recent timestamp tx: %s (%d prior versions)</br>
+Most recent merkle tree tip: %s</br>
 Best-block: %s, height %d</br>
 </br>
 Wallet balance: %s BTC</br>
@@ -156,6 +159,9 @@ This address changes after every donation.
 """ % (otsserver.__version__,
        len(self.calendar.stamper.pending_commitments),
        len(self.calendar.stamper.txs_waiting_for_confirmation),
+       b2lx(self.calendar.stamper.unconfirmed_txs[-1].tx.GetHash()) if self.calendar.stamper.unconfirmed_txs else 'None',
+       max(0, len(self.calendar.stamper.unconfirmed_txs) - 1),
+       b2x(self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg) if self.calendar.stamper.unconfirmed_txs else 'None',
        bitcoin.core.b2lx(proxy.getbestblockhash()), proxy.getblockcount(),
        str_wallet_balance,
        str(proxy.getaccountaddress('')))

@@ -33,6 +33,14 @@ from otsserver.calendar import Journal
 
 KnownBlock = collections.namedtuple('KnownBlock', ['height', 'hash'])
 TimestampTx = collections.namedtuple('TimestampTx', ['tx', 'tip_timestamp', 'commitment_timestamps'])
+UnconfirmedTimestampTx = collections.namedtuple('TimestampTx', ['tx', 'tip_timestamp', 'n'])
+
+class OrderedSet(collections.OrderedDict):
+    def add(self, item):
+        self[item] = ()
+
+    def remove(self, item):
+        self.pop(item)
 
 class KnownBlocks:
     """Maintain a list of known blocks"""
@@ -175,6 +183,23 @@ class Stamper:
                      (b2lx(confirmed_tx.tx.GetHash()),
                       len(confirmed_tx.commitment_timestamps)))
 
+    def __pending_to_merkle_tree(self, n):
+            # Update the most recent timestamp transaction with new commitments
+            commitment_timestamps = [Timestamp(commitment) for commitment in tuple(self.pending_commitments)[0:n]]
+
+            # Remember that commitment_timestamps contains raw commitments,
+            # which are longer than necessary, so we sha256 them before passing
+            # them to make_merkle_tree, which concatenates whatever it gets (or
+            # for the matter, returns what it gets if there's only one item for
+            # the tree!)
+            commitment_digest_timestamps = [stamp.ops.add(OpSHA256()) for stamp in commitment_timestamps]
+
+            logging.debug("Making merkle tree")
+            tip_timestamp = make_merkle_tree(commitment_digest_timestamps)
+            logging.debug("Done making merkle tree")
+
+            return (tip_timestamp, commitment_timestamps)
+
     def __do_bitcoin(self):
         """Do Bitcoin-related maintenance"""
 
@@ -215,26 +240,30 @@ class Stamper:
                 return
 
             # Check all potential pending txs against this block.
-            for tx in self.unconfirmed_txs:
-                block_timestamp = make_timestamp_from_block(tx.tip_timestamp.msg, block, block_height)
+            for unconfirmed_tx in self.unconfirmed_txs:
+                block_timestamp = make_timestamp_from_block(unconfirmed_tx.tip_timestamp.msg, block, block_height)
 
                 if block_timestamp is None:
                     continue
 
                 # Success!
-                tx.tip_timestamp.merge(block_timestamp)
+                (tip_timestamp, commitment_timestamps) = self.__pending_to_merkle_tree(unconfirmed_tx.n)
+                mined_tx = TimestampTx(unconfirmed_tx.tx, tip_timestamp, commitment_timestamps)
+                assert tip_timestamp.msg == unconfirmed_tx.tip_timestamp.msg
 
-                for commitment_timestamp in tx.commitment_timestamps:
-                    self.pending_commitments.remove(commitment_timestamp.msg)
-                    logging.debug("Removed commitment %s from pending" % b2x(commitment_timestamp.msg))
+                mined_tx.tip_timestamp.merge(block_timestamp)
+
+                for commitment in tuple(self.pending_commitments)[0:unconfirmed_tx.n]:
+                    self.pending_commitments.remove(commitment)
+                    logging.debug("Removed commitment %s from pending" % b2x(commitment))
 
                 assert self.min_confirmations > 1
                 logging.info("Success! %d commitments timestamped, now waiting for %d more confirmations" %
-                             (len(tx.commitment_timestamps), self.min_confirmations - 1))
+                             (len(mined_tx.commitment_timestamps), self.min_confirmations - 1))
 
                 # Add pending_tx to the list of timestamp transactions that
                 # have been mined, and are waiting for confirmations.
-                self.txs_waiting_for_confirmation[block_height] = tx
+                self.txs_waiting_for_confirmation[block_height] = mined_tx
 
                 # Since all unconfirmed txs conflict with each other, we can clear the entire lot
                 self.unconfirmed_txs.clear()
@@ -242,6 +271,8 @@ class Stamper:
                 # And finally, we can reset the last time a timestamp
                 # transaction was mined to right now.
                 self.last_timestamp_tx = time.time()
+
+                break
 
 
         time_to_next_tx = int(self.last_timestamp_tx + self.min_tx_interval - time.time())
@@ -270,23 +301,12 @@ class Stamper:
             logging.debug('New timestamp tx, spending output %r, value %s' % (unspent[-1]['outpoint'], str_money_value(unspent[-1]['amount'])))
 
         elif self.unconfirmed_txs:
+            assert self.pending_commitments
             (prev_tx, prev_tip_timestamp, prev_commitment_timestamps) = self.unconfirmed_txs[-1]
 
         # Send the first transaction even if we don't have a new block
         if prev_tx and (new_blocks or not self.unconfirmed_txs):
-            # Update the most recent timestamp transaction with new commitments
-            commitment_timestamps = [Timestamp(commitment) for commitment in self.pending_commitments]
-
-            # Remember that commitment_timestamps contains raw commitments,
-            # which are longer than necessary, so we sha256 them before passing
-            # them to make_merkle_tree, which concatenates whatever it gets (or
-            # for the matter, returns what it gets if there's only one item for
-            # the tree!)
-            commitment_digest_timestamps = [stamp.ops.add(OpSHA256()) for stamp in commitment_timestamps]
-
-            logging.debug("Making merkle tree")
-            tip_timestamp = make_merkle_tree(commitment_digest_timestamps)
-            logging.debug("Done making merkle tree")
+            (tip_timestamp, commitment_timestamps) = self.__pending_to_merkle_tree(len(self.pending_commitments))
 
             # make_merkle_tree() seems to take long enough on really big adds
             # that the proxy dies
@@ -333,7 +353,7 @@ class Stamper:
             else:
                 logging.info("Sent timestamp tx %s; %d total commitments" % (b2lx(sent_tx.GetHash()), len(commitment_timestamps)))
 
-            self.unconfirmed_txs.append(TimestampTx(sent_tx, tip_timestamp, commitment_timestamps))
+            self.unconfirmed_txs.append(UnconfirmedTimestampTx(sent_tx, tip_timestamp, len(commitment_timestamps)))
 
     def __loop(self):
         logging.info("Starting stamper loop")
@@ -411,7 +431,7 @@ class Stamper:
 
         self.known_blocks = KnownBlocks()
         self.unconfirmed_txs = []
-        self.pending_commitments = set()
+        self.pending_commitments = OrderedSet()
         self.txs_waiting_for_confirmation = {}
 
         self.last_timestamp_tx = 0

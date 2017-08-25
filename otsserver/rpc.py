@@ -83,7 +83,17 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
                 # get specific commitments from servers, so in the current
                 # implementation there's no reason why this response would ever
                 # change.
-                self.send_header('Cache-Control', 'public, max-age=3600')
+                #
+                # FIXME: unfortunately, this isn't actually true, as the
+                # stamper may return `Not Found` for a commitment that was just
+                # added, as commitments aren't actually added directly to the
+                # pending data structure, but rather, added to the journal and
+                # only then added to pending. So for now, set a reasonably
+                # short cache control header.
+                #
+                # See https://github.com/opentimestamps/opentimestamps-server/issues/10
+                # for more info.
+                self.send_header('Cache-Control', 'public, max-age=60')
                 reason = b'Not found'
 
             self.end_headers()

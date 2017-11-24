@@ -400,7 +400,7 @@ class Stamper:
                 # connection, and python-bitcoinlib doesn't have great handling
                 # of that. In our case we should be safe to just retry as
                 # __do_bitcoin() is fairly self-contained.
-                logging.error("__do_bitcoin() failed: %r" % exp)
+                logging.error("__do_bitcoin() failed: %r" % exp, exc_info=True)
 
             self.exit_event.wait(1)
 

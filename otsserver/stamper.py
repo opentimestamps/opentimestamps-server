@@ -427,7 +427,7 @@ class Stamper:
 
         self.relay_feerate = relay_feerate
         self.min_confirmations = min_confirmations
-        assert self.min_confirmations > 0
+        assert self.min_confirmations > 1
         self.min_tx_interval = min_tx_interval
         self.max_fee = max_fee
         self.max_pending = max_pending

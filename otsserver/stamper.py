@@ -242,9 +242,17 @@ class Stamper:
                 logging.error("Failed to get block")
                 return
 
+            # the following is an optimization, by pre computing the serialization of tx
+            # we avoid this step for every unconfirmed tx
+            serde_txs = []
+            for tx in block.vtx:
+                serde_txs.append((tx, tx.serialize()))
+
             # Check all potential pending txs against this block.
-            for unconfirmed_tx in self.unconfirmed_txs:
-                block_timestamp = make_timestamp_from_block(unconfirmed_tx.tip_timestamp.msg, block, block_height)
+            # iterating in reverse order to prioritize most recent digest which commits to a bigger merkle tree
+            for unconfirmed_tx in self.unconfirmed_txs[::-1]:
+                block_timestamp = make_timestamp_from_block(unconfirmed_tx.tip_timestamp.msg, block, block_height,
+                                                            serde_txs=serde_txs)
 
                 if block_timestamp is None:
                     continue

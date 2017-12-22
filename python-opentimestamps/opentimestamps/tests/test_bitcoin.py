@@ -12,11 +12,25 @@
 import unittest
 
 from bitcoin.core import *
-
-from opentimestamps.core.timestamp import *
 from opentimestamps.bitcoin import *
+import bitcoin.rpc
+
 
 class Test_make_timestamp_from_block(unittest.TestCase):
+
+    def test_bench(self):
+        try:
+            proxy = bitcoin.rpc.Proxy()
+            block = proxy.getblock(lx('0000000000000000001d34d4434c1223a5b9b7298714cafa85cb1b139b3d9f1b'))
+            digest = lx('0000000000000000001d34d4434c1223a5b9b7298714cafa85cb1b139b3d9f1b')
+            serde_txs = []
+            for tx in block.vtx:
+                serde_txs.append((tx, tx.serialize()))
+            for i in range(0, 300):
+                make_timestamp_from_block(digest, block, 0, serde_txs=serde_txs)
+        except:
+            pass
+
     def test(self):
         # genesis block!
         block = CBlock.deserialize(x('010000006fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000982051fd1e4ba744bbbe680e1fee14677ba1a3c3540bf7b1cdb606e857233e0e61bc6649ffff001d01e362990101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0704ffff001d0104ffffffff0100f2052a0100000043410496b538e853519c726a2c91e61ec11600ae1390813a627c66fb8be7947be63c52da7589379515d4e0a604f8141781e62294721166bf621e73a82cbf2342c858eeac00000000'))

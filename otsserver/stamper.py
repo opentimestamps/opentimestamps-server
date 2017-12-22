@@ -250,7 +250,7 @@ class Stamper:
 
             # Check all potential pending txs against this block.
             # iterating in reverse order to prioritize most recent digest which commits to a bigger merkle tree
-            for unconfirmed_tx in self.unconfirmed_txs[::-1]:
+            for (i, unconfirmed_tx) in enumerate(self.unconfirmed_txs[::-1]):
                 block_timestamp = make_timestamp_from_block(unconfirmed_tx.tip_timestamp.msg, block, block_height,
                                                             serde_txs=serde_txs)
 
@@ -276,8 +276,8 @@ class Stamper:
                 # have been mined, and are waiting for confirmations.
                 self.txs_waiting_for_confirmation[block_height] = mined_tx
 
-                # Since all unconfirmed txs conflict with each other, we can clear the entire lot
-                self.unconfirmed_txs.clear()
+                # Erasing all the older than current unconfirmed txs
+                self.unconfirmed_txs = self.unconfirmed_txs[0:i]
 
                 # And finally, we can reset the last time a timestamp
                 # transaction was mined to right now.

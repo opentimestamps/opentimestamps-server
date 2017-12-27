@@ -276,8 +276,10 @@ class Stamper:
                 # have been mined, and are waiting for confirmations.
                 self.txs_waiting_for_confirmation[block_height] = mined_tx
 
-                # Erasing all the older than current unconfirmed txs
-                self.unconfirmed_txs = self.unconfirmed_txs[0:i]
+                # Erasing all unconfirmed txs if the transaction was mine
+                if mined_tx in self.mines:
+                    self.unconfirmed_txs.clear()
+                    self.mines.clear()
 
                 # And finally, we can reset the last time a timestamp
                 # transaction was mined to right now.
@@ -365,6 +367,7 @@ class Stamper:
                 logging.info("Sent timestamp tx %s; %d total commitments" % (b2lx(sent_tx.GetHash()), len(commitment_timestamps)))
 
             self.unconfirmed_txs.append(UnconfirmedTimestampTx(sent_tx, tip_timestamp, len(commitment_timestamps)))
+            self.mines.add(sent_tx)
 
     def __loop(self):
         logging.info("Starting stamper loop")
@@ -442,6 +445,7 @@ class Stamper:
 
         self.known_blocks = KnownBlocks()
         self.unconfirmed_txs = []
+        self.mines = set()
         self.pending_commitments = OrderedSet()
         self.txs_waiting_for_confirmation = {}
 

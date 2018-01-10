@@ -2,7 +2,7 @@
 
 This package provides the `otsd` daemon, a calendar server which provides
 aggregation, Bitcoin timestamping, and remote calendar services for
-OpenTimestamps clients. You don't need to run a server to use the
+OpenTimestamps clients. You *do not* need to run a server to use the
 OpenTimestamps protocol - public servers exist that are free to use. That said,
 running a server locally can be useful for developers of OpenTimestamps
 protocol clients, particularly with a local Bitcoin node running in regtest
@@ -78,6 +78,13 @@ If your server is running on testnet or regtest, make sure to tell your client
 what chain to use when verifying. For example, regtest:
 ```
 ots --btc-regtest -l http://127.0.0.1:14788 upgrade FILE.ots
+```
+
+Tip: with regtest you can mine blocks on demand to make your timestamp confirm
+with the `generate` RPC command. For example, to mine ten blocks instantly:
+
+```
+bitcoin-cli generate 10
 ```
 
 By default `otsd` binds to localhost, and isn't really designed to be exposed

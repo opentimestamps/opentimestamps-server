@@ -1,7 +1,8 @@
 # OpenTimestamps Calendar Server
 
-This package provides aggregation, Bitcoin timestamping, and remote calendar
-services for OpenTimestamps clients. You don't need to run a server to use the
+This package provides the `otsd` daemon, a calendar server which provides
+aggregation, Bitcoin timestamping, and remote calendar services for
+OpenTimestamps clients. You don't need to run a server to use the
 OpenTimestamps protocol - public servers exist that are free to use. That said,
 running a server locally can be useful for developers of OpenTimestamps
 protocol clients, particularly with a local Bitcoin node running in regtest
@@ -14,56 +15,76 @@ mode.
 * leveldb
 
 
-## Installing
+## Installation
 
-You will need a bitcoin node running on the same machine. You can safely use 
-the testnet. You will need this in your bitcoin.conf:
+You'll need a local Bitcoin node with a wallet with some funds in it; a pruned
+node is fine. While `otsd` is running the wallet should not be used for other
+purposes, as currently the Bitcoin timestamping functionality assumes that it
+has exclusive use of the wallet.
+
+First make sure the following is in your `~/.bitcoin/bitcoin.conf` file:
+
 ```
-# uncomment this for testnet
-#testnet=1 
-# uncomment this line to run a pruned node
-# security will be the same, but won't be
-# contributing as much to the bitcoin network
-#prune=1024 
-server=1
-listen=1
+# Currently only password authentication is supported
 rpcuser=CHANGETHIS
 rpcpassword=CHANGETHIS
-rpcserialversion=0 # ots doesn't support segwit yet
+
+# Segwit is not yet supported
+rpcserialversion=0
 ```
 
-Clone the repo and install the requirements:
+Install the requirements:
 
 ```
-git clone https://github.com/opentimestamps/opentimestamps-server.git
 pip3 install -r requirements.txt
 ```
 
-Run it once to create the config directory.
+Create the calendar:
 ```
-./otsd
-```
-
-OTS will complain that you don't have an URI and/or a hmac key. To fix those, you need to define the public URI of your calendar server in ~/.otsd/calendar/uri .
-Basically whatever is in that file is put into the URI field of pending attestations returned by that calendar server. So when a client goes to verify a timestamp created by that calendar, if the URI starts with http or https, it'll try to make a HTTP(S) connection to that server to fetch the rest of the timestamp proof.
-
-E.g. the alice.btc.calendar.opentimestamps.org calendar server has https://alice.btc.calendar.opentimestamps.org in the ~/.otsd/calendar/uri file.
-
-You will also need a hmac key:
-``` 
+mkdir -p ~/.otsd/calendar/
+echo "http://127.0.0.1:14788" > ~/.otsd/calendar/uri
 dd if=/dev/random of=~/.otsd/calendar/hmac-key bs=32 count=1
 ```
 
-By default your server will run on 127.0.0.1:14788 and you will need to reverse proxy. There is a reference config from 
-a public server in contrib for nginx. You can also [do the same with apache](https://www.digitalocean.com/community/tutorials/how-to-use-apache-as-a-reverse-proxy-with-mod_proxy-on-ubuntu-16-04).
+The URI determines what is put into the URI field of pending attestations
+returned by this calendar server. For a server used for testing, the above is
+fine; for production usage the URI should be set to a stable URL that
+OpenTimestamps clients will be able to access indefinitely.
 
-You can test your server with by doing:
+The HMAC key should be kept secret; it's meant to allow for last-ditch calendar
+recovery from untrusted sources, although only part of the functionality is
+implemented. See the source code for more details!
+
+To actually run the server, run the `otsd` program. Proper daemonization isn't
+implemented yet, so `otsd` runs in the foreground. To run in testnet or
+regtest, use the `--btc-testnet` or `--btc-regtest` options. The OpenTimestamps
+protocol does *not* distinguish between mainnet, testnet, and regtest, so make
+sure you don't mix them up!
+
+To use your calendar server, tell your OpenTimestamps client to connect to it:
+```
+ots stamp -c http://127.0.0.1:14788 -m 1 FILE
+```
+
+OpenTimestamps clients have a whitelist of calendars they'll connect to
+automatically; you'll need to manually add your new server to that whitelist to
+use it when upgrading or verifying:
 
 ```
-ots stamp somefile -c=http://YOURURI/ -m=1
-
-ots upgrade somefile.ots -c=http://YOURURI/
+ots -l http://127.0.0.1:14788 upgrade FILE.ots
 ```
+
+If your server is running on testnet or regtest, make sure to tell your client
+what chain to use when verifying. For example, regtest:
+```
+ots --btc-regtest -l http://127.0.0.1:14788 upgrade FILE.ots
+```
+
+By default `otsd` binds to localhost, and isn't really designed to be exposed
+directly to the public. For production usage we recommend using a reverse
+proxy; an example configuration for nginx is provided under the
+`contrib/nginx` directory of this repo.
+
 
 ## Unit tests
 

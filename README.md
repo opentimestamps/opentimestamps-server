@@ -19,8 +19,12 @@ mode.
 You will need a bitcoin node running on the same machine. You can safely use 
 the testnet. You will need this in your bitcoin.conf:
 ```
-#testnet=1 # uncomment this for testnet
-txindex=1
+# uncomment this for testnet
+#testnet=1 
+# uncomment this line to run a pruned node
+# security will be the same, but won't be
+# contributing as much to the bitcoin network
+#prune=1024 
 server=1
 listen=1
 rpcuser=CHANGETHIS
@@ -35,14 +39,19 @@ git clone https://github.com/opentimestamps/opentimestamps-server.git
 pip3 install -r requirements.txt
 ```
 
-You need to define the public URI of your calendar server in ~/.otsd/calendar/uri .
+Run it once to create the config directory.
+```
+./otsd
+```
+
+OTS will complain that you don't have an URI and/or a hmac key. To fix those, you need to define the public URI of your calendar server in ~/.otsd/calendar/uri .
 Basically whatever is in that file is put into the URI field of pending attestations returned by that calendar server. So when a client goes to verify a timestamp created by that calendar, if the URI starts with http or https, it'll try to make a HTTP(S) connection to that server to fetch the rest of the timestamp proof.
 
 E.g. the alice.btc.calendar.opentimestamps.org calendar server has https://alice.btc.calendar.opentimestamps.org in the ~/.otsd/calendar/uri file.
 
 You will also need a hmac key:
 ``` 
-openssl rand -base64 128 > .otsd/calendar/hmac-key
+dd if=/dev/random of=~/.otsd/calendar/hmac-key bs=32 count=1
 ```
 
 By default your server will run on 127.0.0.1:14788 and you will need to reverse proxy. There is a reference config from 

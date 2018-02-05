@@ -402,7 +402,7 @@ class Stamper:
                 # connection, and python-bitcoinlib doesn't have great handling
                 # of that. In our case we should be safe to just retry as
                 # __do_bitcoin() is fairly self-contained.
-                logging.error("__do_bitcoin() failed: %r" % exp)
+                logging.error("__do_bitcoin() failed: %r" % exp, exc_info=True)
 
             self.exit_event.wait(1)
 
@@ -429,7 +429,7 @@ class Stamper:
 
         self.relay_feerate = relay_feerate
         self.min_confirmations = min_confirmations
-        assert self.min_confirmations > 0
+        assert self.min_confirmations > 1
         self.min_tx_interval = min_tx_interval
         self.max_fee = max_fee
         self.max_pending = max_pending

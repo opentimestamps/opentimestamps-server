@@ -169,7 +169,7 @@ This address changes after every donation.
 """ % (otsserver.__version__,
        len(self.calendar.stamper.pending_commitments),
        len(self.calendar.stamper.txs_waiting_for_confirmation),
-       b2lx(self.calendar.stamper.unconfirmed_txs[-1].tx.GetHash()) if self.calendar.stamper.unconfirmed_txs else 'None',
+       b2lx(self.calendar.stamper.unconfirmed_txs[-1].tx.GetTxid()) if self.calendar.stamper.unconfirmed_txs else 'None',
        max(0, len(self.calendar.stamper.unconfirmed_txs) - 1),
        b2x(self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg) if self.calendar.stamper.unconfirmed_txs else 'None',
        bitcoin.core.b2lx(proxy.getbestblockhash()), proxy.getblockcount(),

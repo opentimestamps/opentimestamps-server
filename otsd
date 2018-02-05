@@ -21,6 +21,9 @@ import threading
 import bitcoin
 import bitcoin.core
 
+from bitcoin.core import x
+from bitcoin.core.script import CScript
+
 import otsserver.calendar
 import otsserver.rpc
 import otsserver.stamper
@@ -68,6 +71,9 @@ parser.add_argument("--btc-min-tx-interval", metavar='SECONDS', type=int,
 parser.add_argument("--btc-max-fee", metavar='FEE', type=float,
                     default=0.001,
                     help="Maximum transaction fee (default: %(default).3f BTC)")
+parser.add_argument("--btc-change-script", metavar='HEX', type=str,
+                    default=None,
+                    help="Script to use for change output")
 
 btc_net_group = parser.add_mutually_exclusive_group()
 btc_net_group.add_argument('--btc-testnet', dest='btc_net', action='store_const',
@@ -117,12 +123,16 @@ calendar_path = os.path.expanduser(args.calendar_path)
 calendar = otsserver.calendar.Calendar(calendar_path)
 aggregator = otsserver.calendar.Aggregator(calendar, exit_event)
 
+if args.btc_change_script is not None:
+    args.btc_change_script = CScript(x(args.btc_change_script))
+
 stamper = otsserver.stamper.Stamper(calendar, exit_event,
                                     args.btc_min_relay_feerate / 1000 * bitcoin.core.COIN,
                                     args.btc_min_confirmations,
                                     args.btc_min_tx_interval,
                                     args.btc_max_fee * bitcoin.core.COIN,
-                                    args.max_pending)
+                                    args.max_pending,
+                                    args.btc_change_script)
 
 calendar.stamper = stamper
 

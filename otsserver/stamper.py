@@ -293,13 +293,9 @@ class Stamper:
                 logging.error("Can't timestamp; no spendable outputs")
                 return
 
-            # For the change scriptPubKey, we can save a few bytes by using
-            # a pay-to-pubkey rather than the usual pay-to-pubkeyhash
             change_addr = proxy.getnewaddress()
-            change_pubkey = proxy.validateaddress(change_addr)['pubkey']
-            change_scriptPubKey = CScript([change_pubkey, OP_CHECKSIG])
-
-            prev_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'], change_scriptPubKey)
+            prev_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'],
+                                                              change_addr.to_scriptPubKey())
 
             logging.debug('New timestamp tx, spending output %r, value %s' % (unspent[-1]['outpoint'], str_money_value(unspent[-1]['amount'])))
 

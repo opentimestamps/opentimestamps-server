@@ -9,12 +9,6 @@ protocol clients, particularly with a local Bitcoin node running in regtest
 mode.
 
 
-## Requirements
-
-* python-bitcoinlib v0.7.0
-* leveldb
-
-
 ## Installation
 
 You'll need a local Bitcoin node with a wallet with some funds in it; a pruned

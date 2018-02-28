@@ -390,7 +390,7 @@ class Stamper:
         # Send the first transaction even if we don't have a new block
         if prev_tx and (new_blocks or not self.unconfirmed_txs):
             (tip_timestamp, commitment_timestamps) = self.__pending_to_merkle_tree(len(self.pending_commitments))
-
+            logging.debug("New tip is %s" % b2x(tip_timestamp.msg))
             # make_merkle_tree() seems to take long enough on really big adds
             # that the proxy dies
             proxy = bitcoin.rpc.Proxy()

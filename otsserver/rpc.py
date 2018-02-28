@@ -50,6 +50,18 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         ctx = StreamSerializationContext(self.wfile)
         timestamp.serialize(ctx)
 
+    def get_tip(self):
+        msg = self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg
+        if msg is not None:
+            self.send_response(200)
+            self.send_header('Content-type', 'application/octet-stream')
+            self.end_headers()
+            self.wfile.write(msg)
+        else:
+            self.send_response(204)
+            self.send_header('Cache-Control', 'public, max-age=60')
+            self.end_headers()
+
     def get_timestamp(self):
         commitment = self.path[len('/timestamp/'):]
 
@@ -181,14 +193,8 @@ This address changes after every donation.
         elif self.path.startswith('/timestamp/'):
             self.get_timestamp()
         elif self.path == '/tip':
-            msg = self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg
-            if msg is not None:
-                self.send_response(200)
-                self.send_header('Content-type', 'application/octet-stream')
-                self.end_headers()
-                self.wfile.write(msg)
-            else:
-                self.send_response(404)
+            self.get_tip()
+
         else:
             self.send_response(404)
             self.send_header('Content-type', 'text/plain')

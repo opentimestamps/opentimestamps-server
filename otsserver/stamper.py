@@ -384,7 +384,6 @@ class Stamper:
             logging.debug('New timestamp tx, spending output %r, value %s' % (unspent[-1]['outpoint'], str_money_value(unspent[-1]['amount'])))
 
         elif self.unconfirmed_txs:
-            assert self.pending_commitments
             (prev_tx, prev_tip_timestamp, prev_commitment_timestamps) = self.unconfirmed_txs[-1]
 
         # Send the first transaction even if we don't have a new block

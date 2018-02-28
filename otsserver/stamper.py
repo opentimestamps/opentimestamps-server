@@ -79,7 +79,8 @@ def make_timestamp_from_block(digest, block, blockheight, serde_txs, *, max_tx_s
         prefix = serialized_tx[0:i]
         suffix = serialized_tx[i + len(digest):]
 
-        len_smallest_tx_found = len(serialized_tx)
+        len_smallest_tx_found = len(serialized_tx)ccccccgndgbibidjukdbeeckrberdfnifcedfirrujdg
+
 
     if len_smallest_tx_found > max_tx_size:
         return None
@@ -324,7 +325,7 @@ class Stamper:
             # we avoid this step for every unconfirmed tx
             serde_txs = []
             for tx in block.vtx:
-                serde_txs.append((tx, tx.serialize()))
+                serde_txs.append((tx, tx.serialize(params={'include_witness':False})))
 
             # Check all potential pending txs against this block.
             # iterating in reverse order to prioritize most recent digest which commits to a bigger merkle tree

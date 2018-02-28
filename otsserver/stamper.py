@@ -79,7 +79,7 @@ def make_timestamp_from_block(digest, block, blockheight, serde_txs, *, max_tx_s
         prefix = serialized_tx[0:i]
         suffix = serialized_tx[i + len(digest):]
 
-        len_smallest_tx_found = len(serialized_tx)ccccccgndgbibidjukdbeeckrberdfnifcedfirrujdg
+        len_smallest_tx_found = len(serialized_tx)
 
 
     if len_smallest_tx_found > max_tx_size:

@@ -11,24 +11,18 @@
 
 import collections
 import logging
-import os
-import queue
-import struct
 import threading
 import time
 
 import bitcoin.rpc
 
 from bitcoin.core import COIN, b2lx, b2x, CTxIn, CTxOut, CTransaction, str_money_value
-from bitcoin.core.script import CScript, OP_RETURN, OP_CHECKSIG
+from bitcoin.core.script import CScript, OP_RETURN
 
 from opentimestamps.bitcoin import cat_sha256d
-from opentimestamps.core.notary import PendingAttestation, BitcoinBlockHeaderAttestation
-from opentimestamps.core.serialize import StreamSerializationContext, StreamDeserializationContext
-from opentimestamps.core.op import OpPrepend, OpAppend, OpSHA256
+from opentimestamps.core.notary import BitcoinBlockHeaderAttestation
+from opentimestamps.core.op import OpPrepend, OpSHA256
 from opentimestamps.core.timestamp import Timestamp, make_merkle_tree
-from opentimestamps.timestamp import nonce_timestamp
-
 
 from otsserver.calendar import Journal
 
@@ -81,9 +75,8 @@ def make_timestamp_from_block(digest, block, blockheight, serde_txs, *, max_tx_s
 
         len_smallest_tx_found = len(serialized_tx)
 
-
     if len_smallest_tx_found > max_tx_size:
-        return None
+        return None, None
 
     digest_timestamp = Timestamp(digest)
 
@@ -109,7 +102,7 @@ def make_timestamp_from_block(digest, block, blockheight, serde_txs, *, max_tx_s
     attestation = BitcoinBlockHeaderAttestation(blockheight)
     merkleroot_stamp.attestations.add(attestation)
 
-    return digest_timestamp
+    return digest_timestamp, CTransaction.deserialize(serialized_tx)
 
 
 class OrderedSet(collections.OrderedDict):
@@ -330,15 +323,17 @@ class Stamper:
             # Check all potential pending txs against this block.
             # iterating in reverse order to prioritize most recent digest which commits to a bigger merkle tree
             for unconfirmed_tx in self.unconfirmed_txs[::-1]:
-                block_timestamp = make_timestamp_from_block(unconfirmed_tx.tip_timestamp.msg, block, block_height,
-                                                            serde_txs)
+                (block_timestamp, found_tx) = make_timestamp_from_block(unconfirmed_tx.tip_timestamp.msg, block,
+                                                                        block_height, serde_txs)
 
                 if block_timestamp is None:
                     continue
 
+                logging.info("Found %s which contains %s" % (b2lx(found_tx.GetTxid()),
+                                                             b2x(unconfirmed_tx.tip_timestamp.msg)))
                 # Success!
                 (tip_timestamp, commitment_timestamps) = self.__pending_to_merkle_tree(unconfirmed_tx.n)
-                mined_tx = TimestampTx(unconfirmed_tx.tx, tip_timestamp, commitment_timestamps)
+                mined_tx = TimestampTx(found_tx, tip_timestamp, commitment_timestamps)
                 assert tip_timestamp.msg == unconfirmed_tx.tip_timestamp.msg
 
                 mined_tx.tip_timestamp.merge(block_timestamp)

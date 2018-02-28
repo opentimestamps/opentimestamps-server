@@ -50,7 +50,7 @@ def make_btc_block_merkle_tree(blk_txids):
     return digests[0]
 
 
-def make_timestamp_from_block(digest, block, blockheight, serde_txs, *, max_tx_size=1000):
+def make_timestamp_from_block(digest, block, blockheight, serde_txs, *, max_tx_size=500):
     """Make a timestamp for a message in a block with cached serialized txs
     see python-opentimestamps.bitcoin.make_timestamp_from_block
     """

@@ -351,7 +351,7 @@ class Stamper:
                 self.txs_waiting_for_confirmation[block_height] = mined_tx
 
                 # Erasing all unconfirmed txs if the transaction was mine
-                if mined_tx.tx.getTxid() in self.mines:
+                if mined_tx.tx.GetTxid() in self.mines:
                     self.unconfirmed_txs.clear()
                     self.mines.clear()
 
@@ -384,7 +384,6 @@ class Stamper:
             logging.debug('New timestamp tx, spending output %r, value %s' % (unspent[-1]['outpoint'], str_money_value(unspent[-1]['amount'])))
 
         elif self.unconfirmed_txs:
-            assert self.pending_commitments
             (prev_tx, prev_tip_timestamp, prev_commitment_timestamps) = self.unconfirmed_txs[-1]
 
         # Send the first transaction even if we don't have a new block
@@ -437,7 +436,7 @@ class Stamper:
                 logging.info("Sent timestamp tx %s; %d total commitments" % (b2lx(sent_tx.GetTxid()), len(commitment_timestamps)))
 
             self.unconfirmed_txs.append(UnconfirmedTimestampTx(sent_tx, tip_timestamp, len(commitment_timestamps)))
-            self.mines.add(sent_tx.getTxid())
+            self.mines.add(sent_tx.GetTxid())
 
     def __loop(self):
         logging.info("Starting stamper loop")

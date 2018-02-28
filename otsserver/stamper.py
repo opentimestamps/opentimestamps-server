@@ -11,24 +11,18 @@
 
 import collections
 import logging
-import os
-import queue
-import struct
 import threading
 import time
 
 import bitcoin.rpc
 
 from bitcoin.core import COIN, b2lx, b2x, CTxIn, CTxOut, CTransaction, str_money_value
-from bitcoin.core.script import CScript, OP_RETURN, OP_CHECKSIG
+from bitcoin.core.script import CScript, OP_RETURN
 
 from opentimestamps.bitcoin import cat_sha256d
-from opentimestamps.core.notary import PendingAttestation, BitcoinBlockHeaderAttestation
-from opentimestamps.core.serialize import StreamSerializationContext, StreamDeserializationContext
-from opentimestamps.core.op import OpPrepend, OpAppend, OpSHA256
+from opentimestamps.core.notary import BitcoinBlockHeaderAttestation
+from opentimestamps.core.op import OpPrepend, OpSHA256
 from opentimestamps.core.timestamp import Timestamp, make_merkle_tree
-from opentimestamps.timestamp import nonce_timestamp
-
 
 from otsserver.calendar import Journal
 
@@ -56,7 +50,7 @@ def make_btc_block_merkle_tree(blk_txids):
     return digests[0]
 
 
-def make_timestamp_from_block(digest, block, blockheight, serde_txs, *, max_tx_size=1000):
+def make_timestamp_from_block(digest, block, blockheight, serde_txs, *, max_tx_size=500):
     """Make a timestamp for a message in a block with cached serialized txs
     see python-opentimestamps.bitcoin.make_timestamp_from_block
     """
@@ -79,11 +73,10 @@ def make_timestamp_from_block(digest, block, blockheight, serde_txs, *, max_tx_s
         prefix = serialized_tx[0:i]
         suffix = serialized_tx[i + len(digest):]
 
-        len_smallest_tx_found = len(serialized_tx)ccccccgndgbibidjukdbeeckrberdfnifcedfirrujdg
-
+        len_smallest_tx_found = len(serialized_tx)
 
     if len_smallest_tx_found > max_tx_size:
-        return None
+        return None, None
 
     digest_timestamp = Timestamp(digest)
 
@@ -109,7 +102,7 @@ def make_timestamp_from_block(digest, block, blockheight, serde_txs, *, max_tx_s
     attestation = BitcoinBlockHeaderAttestation(blockheight)
     merkleroot_stamp.attestations.add(attestation)
 
-    return digest_timestamp
+    return digest_timestamp, CTransaction.deserialize(serialized_tx)
 
 
 class OrderedSet(collections.OrderedDict):
@@ -330,15 +323,17 @@ class Stamper:
             # Check all potential pending txs against this block.
             # iterating in reverse order to prioritize most recent digest which commits to a bigger merkle tree
             for unconfirmed_tx in self.unconfirmed_txs[::-1]:
-                block_timestamp = make_timestamp_from_block(unconfirmed_tx.tip_timestamp.msg, block, block_height,
-                                                            serde_txs)
+                (block_timestamp, found_tx) = make_timestamp_from_block(unconfirmed_tx.tip_timestamp.msg, block,
+                                                                        block_height, serde_txs)
 
                 if block_timestamp is None:
                     continue
 
+                logging.info("Found %s which contains %s" % (b2lx(found_tx.GetTxid()),
+                                                             b2x(unconfirmed_tx.tip_timestamp.msg)))
                 # Success!
                 (tip_timestamp, commitment_timestamps) = self.__pending_to_merkle_tree(unconfirmed_tx.n)
-                mined_tx = TimestampTx(unconfirmed_tx.tx, tip_timestamp, commitment_timestamps)
+                mined_tx = TimestampTx(found_tx, tip_timestamp, commitment_timestamps)
                 assert tip_timestamp.msg == unconfirmed_tx.tip_timestamp.msg
 
                 mined_tx.tip_timestamp.merge(block_timestamp)
@@ -395,7 +390,7 @@ class Stamper:
         # Send the first transaction even if we don't have a new block
         if prev_tx and (new_blocks or not self.unconfirmed_txs):
             (tip_timestamp, commitment_timestamps) = self.__pending_to_merkle_tree(len(self.pending_commitments))
-
+            logging.debug("New tip is %s" % b2x(tip_timestamp.msg))
             # make_merkle_tree() seems to take long enough on really big adds
             # that the proxy dies
             proxy = bitcoin.rpc.Proxy()
@@ -502,7 +497,7 @@ class Stamper:
             for height, ttx in self.txs_waiting_for_confirmation.items():
                for commitment_timestamp in ttx.commitment_timestamps:
                     if commitment == commitment_timestamp.msg:
-                        return "Timestamped by transaction %s; waiting for %d confirmations" % (b2lx(ttx.tx.GetTxid()), self.min_confirmations)
+                        return "Timestamped by transaction %s; waiting for %d confirmations" % (b2lx(ttx.tx.GetTxid()), self.min_confirmations-1)
 
             else:
                 return False

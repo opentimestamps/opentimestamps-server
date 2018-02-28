@@ -55,11 +55,12 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         if msg is not None:
             self.send_response(200)
             self.send_header('Content-type', 'application/octet-stream')
+            self.send_header('Cache-Control', 'public, max-age=10')
             self.end_headers()
             self.wfile.write(msg)
         else:
             self.send_response(204)
-            self.send_header('Cache-Control', 'public, max-age=60')
+            self.send_header('Cache-Control', 'public, max-age=10')
             self.end_headers()
 
     def get_timestamp(self):

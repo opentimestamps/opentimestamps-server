@@ -117,7 +117,8 @@ class KnownBlocks:
                 # rollback!
                 pass
 
-            logging.info("Reorg detected at height %d, rolling back block %s" % (self.__blocks[-1].height, b2lx(self.__blocks[-1].hash)))
+            logging.info("Reorg detected at height %d, rolling back block %s"
+                         % (self.__blocks[-1].height, b2lx(self.__blocks[-1].hash)))
             self.__blocks.pop(-1)
 
     def update_from_proxy(self, proxy):
@@ -294,7 +295,8 @@ class Stamper:
                 # FIXME: the reorged transaction might get mined in another
                 # block, so just adding the commitments for it back to the pool
                 # isn't ideal, but it is safe
-                logging.info('tx %s at height %d removed by reorg, adding %d commitments back to pending' % (b2lx(reorged_tx.tx.GetTxid()), block_height, len(reorged_tx.commitment_timestamps)))
+                logging.info('tx %s at height %d removed by reorg, adding %d commitments back to pending'
+                             % (b2lx(reorged_tx.tx.GetTxid()), block_height, len(reorged_tx.commitment_timestamps)))
                 for reorged_commitment_timestamp in reorged_tx.commitment_timestamps:
                     self.pending_commitments.add(reorged_commitment_timestamp.msg)
 
@@ -317,7 +319,7 @@ class Stamper:
             # iterating in reverse order to prioritize most recent digest which commits to a bigger merkle tree
             for unconfirmed_tx in self.unconfirmed_txs[::-1]:
 
-                if unconfirmed_tx.tx.GetTxId not in block_txs_id:
+                if unconfirmed_tx.tx.GetTxid() not in block_txs_id:
                     continue
 
                 confirmed_tx = unconfirmed_tx  # Success! Found tx
@@ -423,9 +425,11 @@ class Stamper:
 
         if self.unconfirmed_txs:
             logging.info("Sent timestamp tx %s, replacing %s; %d total commitments; %d prior tx versions" %
-                            (b2lx(sent_tx.GetTxid()), b2lx(prev_tx.GetTxid()), len(commitment_timestamps), len(self.unconfirmed_txs)))
+                         (b2lx(sent_tx.GetTxid()), b2lx(prev_tx.GetTxid()), len(commitment_timestamps),
+                          len(self.unconfirmed_txs)))
         else:
-            logging.info("Sent timestamp tx %s; %d total commitments" % (b2lx(sent_tx.GetTxid()), len(commitment_timestamps)))
+            logging.info("Sent timestamp tx %s; %d total commitments" % (b2lx(sent_tx.GetTxid()),
+                                                                         len(commitment_timestamps)))
 
         self.unconfirmed_txs.append(UnconfirmedTimestampTx(sent_tx, tip_timestamp, len(commitment_timestamps)))
 
@@ -451,7 +455,8 @@ class Stamper:
                 # Is this commitment already stamped?
                 if commitment not in self.calendar:
                     self.pending_commitments.add(commitment)
-                    logging.debug('Added %s (idx %d) to pending commitments; %d total' % (b2x(commitment), idx, len(self.pending_commitments)))
+                    logging.debug('Added %s (idx %d) to pending commitments; %d total'
+                                  % (b2x(commitment), idx, len(self.pending_commitments)))
                 else:
                     if idx % 1000 == 0:
                         logging.debug('Commitment at idx %d already stamped' % idx)
@@ -487,7 +492,8 @@ class Stamper:
             for height, ttx in self.txs_waiting_for_confirmation.items():
                for commitment_timestamp in ttx.commitment_timestamps:
                     if commitment == commitment_timestamp.msg:
-                        return "Timestamped by transaction %s; waiting for %d confirmations" % (b2lx(ttx.tx.GetTxid()), self.min_confirmations-1)
+                        return "Timestamped by transaction %s; waiting for %d confirmations"\
+                               % (b2lx(ttx.tx.GetTxid()), self.min_confirmations-1)
 
             else:
                 return False

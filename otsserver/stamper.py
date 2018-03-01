@@ -53,7 +53,7 @@ def make_btc_block_merkle_tree(blk_txids):
 def make_timestamp_from_block_tx(confirmed_tx, block, blockheight):
 
     commitment_tx = confirmed_tx.tx
-    serialized_tx = confirmed_tx.serialize(params={'include_witness': False})
+    serialized_tx = commitment_tx.serialize(params={'include_witness': False})
     digest = confirmed_tx.tip_timestamp.msg
 
     try:

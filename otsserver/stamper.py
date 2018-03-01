@@ -59,8 +59,7 @@ def make_timestamp_from_block_tx(confirmed_tx, block, blockheight):
     try:
         i = serialized_tx.index(digest)
     except ValueError:
-        logging.error("can't build a block_timestamp from my tx, this is not supposed to happen, exiting")
-        sys.exit(1)
+        assert False, "can't build a block_timestamp from my tx, this is not supposed to happen, exiting"
 
     prefix = serialized_tx[0:i]
     suffix = serialized_tx[i + len(digest):]

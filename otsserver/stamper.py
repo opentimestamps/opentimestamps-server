@@ -310,22 +310,20 @@ class Stamper:
 
             # the following is an optimization, by pre computing the tx_id we rapidly check if our unconfirmed tx
             # is in the block
-            block_txs_id = set()
-            for tx in block.vtx:
-                block_txs_id.add(tx.GetTxid())
+            block_txids = set(tx.GetTxid() for tx in block.vtx)
 
             # Check all potential pending txs against this block.
             # iterating in reverse order to prioritize most recent digest which commits to a bigger merkle tree
             for unconfirmed_tx in self.unconfirmed_txs[::-1]:
 
-                if unconfirmed_tx.tx.GetTxid() not in block_txs_id:
+                if unconfirmed_tx.tx.GetTxid() not in block_txids:
                     continue
 
                 confirmed_tx = unconfirmed_tx  # Success! Found tx
                 block_timestamp = make_timestamp_from_block_tx(confirmed_tx, block, block_height)
 
-                logging.info("Found %s which contains %s" % (b2lx(confirmed_tx.tx.GetTxid()),
-                                                             b2x(confirmed_tx.tip_timestamp.msg)))
+                logging.info("Found commitment %s in tx %s"
+                             % (b2x(confirmed_tx.tip_timestamp.msg), b2lx(confirmed_tx.tx.GetTxid())))
                 # Success!
                 (tip_timestamp, commitment_timestamps) = self.__pending_to_merkle_tree(confirmed_tx.n)
                 mined_tx = TimestampTx(confirmed_tx.tx, tip_timestamp, commitment_timestamps)
@@ -345,7 +343,7 @@ class Stamper:
                 # have been mined, and are waiting for confirmations.
                 self.txs_waiting_for_confirmation[block_height] = mined_tx
 
-                # Erasing all unconfirmed txs, they are all conflicting with each other
+                # Erase all unconfirmed txs, as they all conflict with each other
                 self.unconfirmed_txs.clear()
 
                 # And finally, we can reset the last time a timestamp

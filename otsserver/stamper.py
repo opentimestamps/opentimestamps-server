@@ -275,7 +275,7 @@ class Stamper:
         new_blocks = self.known_blocks.update_from_proxy(proxy)
 
         # code after this if it's executed only when we have new blocks, it simplify reasoning at the cost of not
-        # having a broadcasted tx immediately after the launch (while it's no different in operation)
+        # having a broadcasted tx immediately after we have a new cycle (the calendar wait the next block)
         if not new_blocks:
             return
 
@@ -309,8 +309,8 @@ class Stamper:
                 logging.error("Failed to get block")
                 return
 
-            # the following is an optimization, by pre computing the serialization of tx
-            # we avoid this step for every unconfirmed tx
+            # the following is an optimization, by pre computing the tx_id we rapidly check if our unconfirmed tx
+            # is in the block
             block_txs_id = set()
             for tx in block.vtx:
                 block_txs_id.add(tx.GetTxid())

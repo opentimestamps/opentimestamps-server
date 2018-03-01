@@ -13,7 +13,7 @@ import collections
 import logging
 import threading
 import time
-
+import sys
 import bitcoin.rpc
 
 from bitcoin.core import COIN, b2lx, b2x, CTxIn, CTxOut, CTransaction, str_money_value
@@ -50,33 +50,20 @@ def make_btc_block_merkle_tree(blk_txids):
     return digests[0]
 
 
-def make_timestamp_from_block(digest, block, blockheight, serde_txs, *, max_tx_size=500):
-    """Make a timestamp for a message in a block with cached serialized txs
-    see python-opentimestamps.bitcoin.make_timestamp_from_block
-    """
-    len_smallest_tx_found = max_tx_size + 1
-    commitment_tx = None
-    prefix = None
-    suffix = None
-    for (tx, serialized_tx) in serde_txs:
+def make_timestamp_from_block_tx(confirmed_tx, block, blockheight):
 
-        if len(serialized_tx) > len_smallest_tx_found:
-            continue
+    commitment_tx = confirmed_tx.tx
+    serialized_tx = confirmed_tx.serialize(params={'include_witness': False})
+    digest = confirmed_tx.tip_timestamp.msg
 
-        try:
-            i = serialized_tx.index(digest)
-        except ValueError:
-            continue
+    try:
+        i = serialized_tx.index(digest)
+    except ValueError:
+        logging.error("can't build a block_timestamp from my tx, this is not supposed to happen, exiting")
+        sys.exit(1)
 
-        # Found it!
-        commitment_tx = tx
-        prefix = serialized_tx[0:i]
-        suffix = serialized_tx[i + len(digest):]
-
-        len_smallest_tx_found = len(serialized_tx)
-
-    if len_smallest_tx_found > max_tx_size:
-        return None, None
+    prefix = serialized_tx[0:i]
+    suffix = serialized_tx[i + len(digest):]
 
     digest_timestamp = Timestamp(digest)
 
@@ -102,7 +89,7 @@ def make_timestamp_from_block(digest, block, blockheight, serde_txs, *, max_tx_s
     attestation = BitcoinBlockHeaderAttestation(blockheight)
     merkleroot_stamp.attestations.add(attestation)
 
-    return digest_timestamp, CTransaction.deserialize(serialized_tx)
+    return digest_timestamp
 
 
 class OrderedSet(collections.OrderedDict):
@@ -210,15 +197,17 @@ def find_unspent(proxy):
                 except IndexError:
                     continue
 
-                confirmed_unspent.append({'outpoint':txin.prevout,
-                                          'amount':confirmed_outpoint['txout'].nValue})
+                confirmed_unspent.append({'outpoint': txin.prevout,
+                                          'amount': confirmed_outpoint['txout'].nValue})
 
         return sorted(confirmed_unspent, key=lambda x: x['amount'])
+
 
 class Stamper:
     """Timestamping bot"""
 
-    def __create_new_timestamp_tx_template(self, outpoint, txout_value, change_scriptPubKey):
+    @staticmethod
+    def __create_new_timestamp_tx_template(outpoint, txout_value, change_scriptPubKey):
         """Create a new timestamp transaction template
 
         The transaction created will have one input and two outputs, with the
@@ -232,7 +221,8 @@ class Stamper:
                             [CTxOut(txout_value, change_scriptPubKey),
                              CTxOut(-1, CScript())])
 
-    def __update_timestamp_tx(self, old_tx, new_commitment, new_min_block_height, relay_feerate):
+    @staticmethod
+    def __update_timestamp_tx(old_tx, new_commitment, new_min_block_height, relay_feerate):
         """Update an existing timestamp transaction
 
         Returns the old transaction with a new commitment, and with the fee
@@ -271,12 +261,10 @@ class Stamper:
             tip_timestamp = make_merkle_tree(commitment_digest_timestamps)
             logging.debug("Done making merkle tree")
 
-            return (tip_timestamp, commitment_timestamps)
+            return tip_timestamp, commitment_timestamps
 
     def __do_bitcoin(self):
         """Do Bitcoin-related maintenance"""
-
-
 
         # FIXME: we shouldn't have to create a new proxy each time, but with
         # current python-bitcoinlib and the RPC implementation it seems that
@@ -284,6 +272,11 @@ class Stamper:
         proxy = bitcoin.rpc.Proxy()
 
         new_blocks = self.known_blocks.update_from_proxy(proxy)
+
+        # code after this if it's executed only when we have new blocks, it simplify reasoning at the cost of not
+        # having a broadcasted tx immediately after the launch (while it's no different in operation)
+        if not new_blocks:
+            return
 
         for (block_height, block_hash) in new_blocks:
             logging.info("New block %s at height %d" % (b2lx(block_hash), block_height))
@@ -316,24 +309,25 @@ class Stamper:
 
             # the following is an optimization, by pre computing the serialization of tx
             # we avoid this step for every unconfirmed tx
-            serde_txs = []
+            block_txs_id = set()
             for tx in block.vtx:
-                serde_txs.append((tx, tx.serialize(params={'include_witness':False})))
+                block_txs_id.add(tx.GetTxid())
 
             # Check all potential pending txs against this block.
             # iterating in reverse order to prioritize most recent digest which commits to a bigger merkle tree
             for unconfirmed_tx in self.unconfirmed_txs[::-1]:
-                (block_timestamp, found_tx) = make_timestamp_from_block(unconfirmed_tx.tip_timestamp.msg, block,
-                                                                        block_height, serde_txs)
 
-                if block_timestamp is None:
+                if unconfirmed_tx.tx.GetTxId not in block_txs_id:
                     continue
 
-                logging.info("Found %s which contains %s" % (b2lx(found_tx.GetTxid()),
-                                                             b2x(unconfirmed_tx.tip_timestamp.msg)))
+                confirmed_tx = unconfirmed_tx  # Success! Found tx
+                block_timestamp = make_timestamp_from_block_tx(confirmed_tx, block, block_height)
+
+                logging.info("Found %s which contains %s" % (b2lx(confirmed_tx.tx.GetTxid()),
+                                                             b2x(confirmed_tx.tip_timestamp.msg)))
                 # Success!
-                (tip_timestamp, commitment_timestamps) = self.__pending_to_merkle_tree(unconfirmed_tx.n)
-                mined_tx = TimestampTx(found_tx, tip_timestamp, commitment_timestamps)
+                (tip_timestamp, commitment_timestamps) = self.__pending_to_merkle_tree(confirmed_tx.n)
+                mined_tx = TimestampTx(confirmed_tx.tx, tip_timestamp, commitment_timestamps)
                 assert tip_timestamp.msg == unconfirmed_tx.tip_timestamp.msg
 
                 mined_tx.tip_timestamp.merge(block_timestamp)
@@ -350,10 +344,8 @@ class Stamper:
                 # have been mined, and are waiting for confirmations.
                 self.txs_waiting_for_confirmation[block_height] = mined_tx
 
-                # Erasing all unconfirmed txs if the transaction was mine
-                if mined_tx.tx.GetTxid() in self.mines:
-                    self.unconfirmed_txs.clear()
-                    self.mines.clear()
+                # Erasing all unconfirmed txs, they are all conflicting with each other
+                self.unconfirmed_txs.clear()
 
                 # And finally, we can reset the last time a timestamp
                 # transaction was mined to right now.
@@ -361,15 +353,19 @@ class Stamper:
 
                 break
 
-
         time_to_next_tx = int(self.last_timestamp_tx + self.min_tx_interval - time.time())
         if time_to_next_tx > 0:
             # Minimum interval between transactions hasn't been reached, so do nothing
             logging.debug("Waiting %ds before next tx" % time_to_next_tx)
             return
 
-        prev_tx = None
-        if self.pending_commitments and not self.unconfirmed_txs:
+        if not self.pending_commitments:
+            logging.debug("No pending commitments, no tx needed")
+            return
+
+        if self.unconfirmed_txs:
+            (prev_tx, prev_tip_timestamp, prev_commitment_timestamps) = self.unconfirmed_txs[-1]
+        else:  # first tx of a new cycle
             # Find the biggest unspent output that's confirmed
             unspent = find_unspent(proxy)
 
@@ -381,62 +377,57 @@ class Stamper:
             prev_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'],
                                                               change_addr.to_scriptPubKey())
 
-            logging.debug('New timestamp tx, spending output %r, value %s' % (unspent[-1]['outpoint'], str_money_value(unspent[-1]['amount'])))
+            logging.debug('New timestamp tx, spending output %r, value %s' % (unspent[-1]['outpoint'],
+                                                                              str_money_value(unspent[-1]['amount'])))
 
-        elif self.unconfirmed_txs:
-            (prev_tx, prev_tip_timestamp, prev_commitment_timestamps) = self.unconfirmed_txs[-1]
+        (tip_timestamp, commitment_timestamps) = self.__pending_to_merkle_tree(len(self.pending_commitments))
+        logging.debug("New tip is %s" % b2x(tip_timestamp.msg))
+        # make_merkle_tree() seems to take long enough on really big adds
+        # that the proxy dies
+        proxy = bitcoin.rpc.Proxy()
 
-        # Send the first transaction even if we don't have a new block
-        if prev_tx and (new_blocks or not self.unconfirmed_txs):
-            (tip_timestamp, commitment_timestamps) = self.__pending_to_merkle_tree(len(self.pending_commitments))
-            logging.debug("New tip is %s" % b2x(tip_timestamp.msg))
-            # make_merkle_tree() seems to take long enough on really big adds
-            # that the proxy dies
-            proxy = bitcoin.rpc.Proxy()
+        sent_tx = None
+        relay_feerate = self.relay_feerate
+        while sent_tx is None:
+            unsigned_tx = self.__update_timestamp_tx(prev_tx, tip_timestamp.msg,
+                                                     proxy.getblockcount(), relay_feerate)
 
-            sent_tx = None
-            relay_feerate = self.relay_feerate
-            while sent_tx is None:
-                unsigned_tx = self.__update_timestamp_tx(prev_tx, tip_timestamp.msg,
-                                                         proxy.getblockcount(), relay_feerate)
+            fee = _get_tx_fee(unsigned_tx, proxy)
+            if fee is None:
+                logging.debug("Can't determine txfee of transaction; skipping")
+                return
+            if fee > self.max_fee:
+                logging.error("Maximum txfee reached!")
+                return
 
-                fee = _get_tx_fee(unsigned_tx, proxy)
-                if fee is None:
-                    logging.debug("Can't determine txfee of transaction; skipping")
-                    return
-                if fee > self.max_fee:
-                    logging.error("Maximum txfee reached!")
-                    return
+            r = proxy.signrawtransaction(unsigned_tx)
+            if not r['complete']:
+                logging.error("Failed to sign transaction! r = %r" % r)
+                return
+            signed_tx = r['tx']
 
-                r = proxy.signrawtransaction(unsigned_tx)
-                if not r['complete']:
-                    logging.error("Failed to sign transaction! r = %r" % r)
-                    return
-                signed_tx = r['tx']
+            try:
+                proxy.sendrawtransaction(signed_tx)
+            except bitcoin.rpc.JSONRPCError as err:
+                if err.error['code'] == -26:
+                    logging.debug("Err: %r" % err.error)
+                    # Insufficient priority - basically means we didn't
+                    # pay enough, so try again with a higher feerate
+                    relay_feerate *= 2
+                    continue
 
-                try:
-                    txid = proxy.sendrawtransaction(signed_tx)
-                except bitcoin.rpc.JSONRPCError as err:
-                    if err.error['code'] == -26:
-                        logging.debug("Err: %r" % err.error)
-                        # Insufficient priority - basically means we didn't
-                        # pay enough, so try again with a higher feerate
-                        relay_feerate *= 2
-                        continue
+                else:
+                    raise err  # something else, fail!
 
-                    else:
-                        raise err  # something else, fail!
+            sent_tx = signed_tx
 
-                sent_tx = signed_tx
+        if self.unconfirmed_txs:
+            logging.info("Sent timestamp tx %s, replacing %s; %d total commitments; %d prior tx versions" %
+                            (b2lx(sent_tx.GetTxid()), b2lx(prev_tx.GetTxid()), len(commitment_timestamps), len(self.unconfirmed_txs)))
+        else:
+            logging.info("Sent timestamp tx %s; %d total commitments" % (b2lx(sent_tx.GetTxid()), len(commitment_timestamps)))
 
-            if self.unconfirmed_txs:
-                logging.info("Sent timestamp tx %s, replacing %s; %d total commitments; %d prior tx versions" %
-                                (b2lx(sent_tx.GetTxid()), b2lx(prev_tx.GetTxid()), len(commitment_timestamps), len(self.unconfirmed_txs)))
-            else:
-                logging.info("Sent timestamp tx %s; %d total commitments" % (b2lx(sent_tx.GetTxid()), len(commitment_timestamps)))
-
-            self.unconfirmed_txs.append(UnconfirmedTimestampTx(sent_tx, tip_timestamp, len(commitment_timestamps)))
-            self.mines.add(sent_tx.GetTxid())
+        self.unconfirmed_txs.append(UnconfirmedTimestampTx(sent_tx, tip_timestamp, len(commitment_timestamps)))
 
     def __loop(self):
         logging.info("Starting stamper loop")
@@ -514,7 +505,7 @@ class Stamper:
 
         self.known_blocks = KnownBlocks()
         self.unconfirmed_txs = []
-        self.mines = set()
+
         self.pending_commitments = OrderedSet()
         self.txs_waiting_for_confirmation = {}
 

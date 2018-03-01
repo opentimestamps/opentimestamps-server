@@ -1,0 +1,15 @@
+[Unit]
+Description=OpenTimestamps server
+After=bitcoind.service
+
+[Service]
+User=ots
+Group=ots
+ExecStartPre=/bin/bash /usr/local/bin/bitcoind-ready.sh
+ExecStart=/home/ots/opentimestamps-server/otsd -v
+Restart=on-failure
+
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target

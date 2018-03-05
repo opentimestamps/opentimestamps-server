@@ -19,8 +19,11 @@ import time
 import bitcoin.core
 from bitcoin.core import b2lx, b2x
 
+from otsserver.backup import Backup
 import otsserver
 from opentimestamps.core.serialize import StreamSerializationContext
+
+from otsserver.calendar import Journal
 
 
 class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
@@ -62,6 +65,28 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(204)
             self.send_header('Cache-Control', 'public, max-age=10')
             self.end_headers()
+
+    def get_backup(self):
+        start_from = self.path[len('/backup/'):]
+        try:
+            start_from = int(start_from)
+        except ValueError:
+            self.send_response(404)
+            self.send_header('Content-type', 'text/plain')
+            return
+
+        result = self.backup.create_from(start_from)
+
+        if result is None:
+            self.send_response(404)
+            self.send_header('Content-type', 'text/plain')
+            return
+
+        self.send_response(200)
+        self.send_header('Content-type', 'application/octet-stream')
+        self.send_header('Cache-Control', 'public, max-age=10')
+        self.end_headers()
+        self.wfile.write(result)
 
     def get_timestamp(self):
         commitment = self.path[len('/timestamp/'):]
@@ -195,7 +220,8 @@ This address changes after every donation.
             self.get_timestamp()
         elif self.path == '/tip':
             self.get_tip()
-
+        elif self.path.startswith('/backup/'):
+            self.get_backup()
         else:
             self.send_response(404)
             self.send_header('Content-type', 'text/plain')
@@ -213,6 +239,9 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
             pass
         rpc_request_handler.aggregator = aggregator
         rpc_request_handler.calendar = calendar
+
+        journal = Journal(calendar.path + '/journal')
+        rpc_request_handler.backup = Backup(journal, calendar)
 
         super().__init__(server_address, rpc_request_handler)
 

@@ -300,13 +300,18 @@ class Stamper:
                     self.pending_commitments.add(reorged_commitment_timestamp.msg)
 
             # Check if this block contains any of the pending transactions
-
-            try:
-                block = proxy.getblock(block_hash)
-            except KeyError:
-                # Must have been a reorg or something, return
-                logging.error("Failed to get block")
-                return
+            block = None
+            while block is None:
+                try:
+                    block = proxy.getblock(block_hash)
+                except KeyError:
+                    # Must have been a reorg or something, return
+                    logging.error("Failed to get block")
+                    return
+                except BrokenPipeError:
+                    logging.error("BrokenPipeError to get block")
+                    time.sleep(5)
+                    proxy = bitcoin.rpc.Proxy()
 
             # the following is an optimization, by pre computing the tx_id we rapidly check if our unconfirmed tx
             # is in the block

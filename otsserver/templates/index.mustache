@@ -17,5 +17,11 @@ Wallet balance: {{ balance }} BTC</br>
 You can donate to the wallet by sending funds to: {{ address }}</br>
 This address changes after every donation.
 </p>
+<p>
+Latest transactions: </br>
+{{#transactions}}
+    {{txid}} </br>
+{{/transactions}}
+</p>
 </body>
 </html>

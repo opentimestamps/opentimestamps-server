@@ -154,8 +154,11 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             # FIXME: Unfortunately getbalance() doesn't return the right thing;
             # need to investigate further, but this seems to work.
             str_wallet_balance = str(proxy._call("getbalance"))
-            transactions = [x for x in proxy._call("listtransactions") if x["confirmations"]>0]
-            #print(transactions)
+
+            transactions = proxy._call("listtransactions", "", 50)
+            # We want only the confirmed txs containing an OP_RETURN, from most to least recent
+            transactions = list(filter(lambda x: x["confirmations"] > 0 and x["amount"] == 0, transactions))
+            transactions.sort(key=lambda x: x["confirmations"])
 
             stats = { 'version': otsserver.__version__,
               'pending_commitments': len(self.calendar.stamper.pending_commitments),
@@ -167,6 +170,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
               'block_height': proxy.getblockcount(),
               'balance': str_wallet_balance,
               'address': str(proxy.getaccountaddress('')),
+              'transactions': transactions[:5],
             }
             welcome_page = renderer.render(open("otsserver/templates/index.mustache").read(), stats)
             self.wfile.write(str.encode(welcome_page))

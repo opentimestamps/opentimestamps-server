@@ -15,6 +15,7 @@ import os
 import socketserver
 import threading
 import time
+import pystache
 
 import bitcoin.core
 from bitcoin.core import b2lx, b2x
@@ -22,7 +23,7 @@ from bitcoin.core import b2lx, b2x
 import otsserver
 from opentimestamps.core.serialize import StreamSerializationContext
 
-
+renderer = pystache.Renderer()
 class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     MAX_DIGEST_LENGTH = 64
     """Largest digest that can be POSTed for timestamping"""
@@ -153,43 +154,23 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             # FIXME: Unfortunately getbalance() doesn't return the right thing;
             # need to investigate further, but this seems to work.
             str_wallet_balance = str(proxy._call("getbalance"))
+            transactions = [x for x in proxy._call("listtransactions") if x["confirmations"]>0]
+            #print(transactions)
 
-            welcome_page = """\
-<html>
-<head>
-    <title>OpenTimestamps Calendar Server</title>
-</head>
-<body>
-<p>This is an <a href="https://opentimestamps.org">OpenTimestamps</a> <a href="https://github.com/opentimestamps/opentimestamps-server">Calendar Server</a> (v%s)</p>
+            stats = { 'version': otsserver.__version__,
+              'pending_commitments': len(self.calendar.stamper.pending_commitments),
+              'txs_waiting_for_confirmation':len(self.calendar.stamper.txs_waiting_for_confirmation),
+              'most_recent_tx': b2lx(self.calendar.stamper.unconfirmed_txs[-1].tx.GetTxid()) if self.calendar.stamper.unconfirmed_txs else 'None',
+              'prior_versions': max(0, len(self.calendar.stamper.unconfirmed_txs) - 1),
+              'tip': b2x(self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg) if self.calendar.stamper.unconfirmed_txs else 'None',
+              'best_block': bitcoin.core.b2lx(proxy.getbestblockhash()),
+              'block_height': proxy.getblockcount(),
+              'balance': str_wallet_balance,
+              'address': str(proxy.getaccountaddress('')),
+            }
+            welcome_page = renderer.render(open("otsserver/templates/index.mustache").read(), stats)
+            self.wfile.write(str.encode(welcome_page))
 
-<p>
-Pending commitments: %d</br>
-Transactions waiting for confirmation: %d</br>
-Most recent timestamp tx: %s (%d prior versions)</br>
-Most recent merkle tree tip: %s</br>
-Best-block: %s, height %d</br>
-</br>
-Wallet balance: %s BTC</br>
-</p>
-
-<p>
-You can donate to the wallet by sending funds to: %s</br>
-This address changes after every donation.
-</p>
-
-</body>
-</html>
-""" % (otsserver.__version__,
-       len(self.calendar.stamper.pending_commitments),
-       len(self.calendar.stamper.txs_waiting_for_confirmation),
-       b2lx(self.calendar.stamper.unconfirmed_txs[-1].tx.GetTxid()) if self.calendar.stamper.unconfirmed_txs else 'None',
-       max(0, len(self.calendar.stamper.unconfirmed_txs) - 1),
-       b2x(self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg) if self.calendar.stamper.unconfirmed_txs else 'None',
-       bitcoin.core.b2lx(proxy.getbestblockhash()), proxy.getblockcount(),
-       str_wallet_balance,
-       str(proxy.getaccountaddress('')))
-
-            self.wfile.write(welcome_page.encode())
 
         elif self.path.startswith('/timestamp/'):
             self.get_timestamp()

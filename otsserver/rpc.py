@@ -159,6 +159,33 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             # We want only the confirmed txs containing an OP_RETURN, from most to least recent
             transactions = list(filter(lambda x: x["confirmations"] > 0 and x["amount"] == 0, transactions))
             transactions.sort(key=lambda x: x["confirmations"])
+            homepage_template = """<html>
+<head>
+    <title>OpenTimestamps Calendar Server</title>
+</head>
+<body>
+<p>This is an <a href="https://opentimestamps.org">OpenTimestamps</a> <a href="https://github.com/opentimestamps/opentimestamps-server">Calendar Server</a> ({{ version }})</p>
+<p>
+Pending commitments: {{ pending_commitments }}</br>
+Transactions waiting for confirmation: {{ txs_waiting_for_confirmation }}</br>
+Most recent timestamp tx: {{ most_recent_tx }} ({{ prior_versions }} prior versions)</br>
+Most recent merkle tree tip: {{ tip }}</br>
+Best-block: {{ best_block }}, height {{ block_height }}</br>
+</br>
+Wallet balance: {{ balance }} BTC</br>
+</p>
+<p>
+You can donate to the wallet by sending funds to: {{ address }}</br>
+This address changes after every donation.
+</p>
+<p>
+Latest transactions: </br>
+{{#transactions}}
+    {{txid}} </br>
+{{/transactions}}
+</p>
+</body>
+</html>"""
 
             stats = { 'version': otsserver.__version__,
               'pending_commitments': len(self.calendar.stamper.pending_commitments),
@@ -172,7 +199,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
               'address': str(proxy.getaccountaddress('')),
               'transactions': transactions[:5],
             }
-            welcome_page = renderer.render(open("otsserver/templates/index.mustache").read(), stats)
+            welcome_page = renderer.render(homepage_template, stats)
             self.wfile.write(str.encode(welcome_page))
 
 

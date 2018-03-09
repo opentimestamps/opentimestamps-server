@@ -164,7 +164,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     <title>OpenTimestamps Calendar Server</title>
 </head>
 <body>
-<p>This is an <a href="https://opentimestamps.org">OpenTimestamps</a> <a href="https://github.com/opentimestamps/opentimestamps-server">Calendar Server</a> ({{ version }})</p>
+<p>This is an <a href="https://opentimestamps.org">OpenTimestamps</a> <a href="https://github.com/opentimestamps/opentimestamps-server">Calendar Server</a> (v{{ version }})</p>
 <p>
 Pending commitments: {{ pending_commitments }}</br>
 Transactions waiting for confirmation: {{ txs_waiting_for_confirmation }}</br>

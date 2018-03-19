@@ -14,9 +14,9 @@ class Backup:
         self.journal = journal
         self.calendar = calendar
 
-    def create_from(self, start):
+    def create_from(self, start, end):
         backup_map = {}
-        for i in range(start, start+PAGING):
+        for i in range(start, end):
             try:
                 current = self.journal[i]
                 # print(str(i) +":"+b2x(journal[i]))
@@ -30,7 +30,7 @@ class Backup:
 
         kv_bytes = self.__kv_map_to_bytes(backup_map)
 
-        return kv_bytes, start, start+PAGING-1
+        return kv_bytes, start, end-1
 
     @staticmethod
     def __bytes_to_kv_map(kv_bytes):
@@ -123,7 +123,7 @@ def parse_range_header(value):
 def parse_range_commitments(comm_range):
 
     # range specified is not about commitments
-    if comm_range is None or comm_range[0] != 'range: commitments':
+    if comm_range is None or comm_range[0] != 'commitments':
         return None, None
 
     # cannot parse the start

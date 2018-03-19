@@ -123,7 +123,7 @@ def parse_range_header(value):
 def parse_range_commitments(comm_range):
 
     # range specified is not about commitments
-    if comm_range[0] != 'range: commitments':
+    if comm_range is None or comm_range[0] != 'range: commitments':
         return None, None
 
     # cannot parse the start

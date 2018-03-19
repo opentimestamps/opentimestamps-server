@@ -19,7 +19,7 @@ import time
 import bitcoin.core
 from bitcoin.core import b2lx, b2x
 
-from otsserver.backup import Backup
+from otsserver.backup import Backup, parse_range_header, parse_range_commitments
 import otsserver
 from opentimestamps.core.serialize import StreamSerializationContext
 
@@ -67,15 +67,16 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
 
     def get_backup(self):
-        start_from = self.path[len('/backup/'):]
-        try:
-            start_from = int(start_from)
-        except ValueError:
-            self.send_response(404)
-            self.send_header('Content-type', 'text/plain')
+        comm_range = parse_range_header(self.headers.get('Range'))
+        (start_from, up_to) = parse_range_commitments(comm_range)
+        if start_from is None:
+            self.send_response(200)
+            self.send_header('Accept-Ranges', 'commitments')
+            self.send_header('Content-Length', '')  # We don't keep track how many commitment we have
+            self.end_headers()
             return
 
-        result = self.backup.create_from(start_from)
+        (result, start, end) = self.backup.create_from(start_from, up_to)
 
         if result is None:
             self.send_response(404)
@@ -220,7 +221,7 @@ This address changes after every donation.
             self.get_timestamp()
         elif self.path == '/tip':
             self.get_tip()
-        elif self.path.startswith('/backup/'):
+        elif self.path == '/backup':
             self.get_backup()
         else:
             self.send_response(404)

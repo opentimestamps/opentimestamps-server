@@ -158,6 +158,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             transactions = proxy._call("listtransactions", "", 50)
             # We want only the confirmed txs containing an OP_RETURN, from most to least recent
             transactions = list(filter(lambda x: x["confirmations"] > 0 and x["amount"] == 0, transactions))
+            time_between_transactions = round(((transactions[-1]["time"] - transactions[0]["time"]) / len(transactions)) / 60) # in hours
             transactions.sort(key=lambda x: x["confirmations"])
             homepage_template = """<html>
 <head>
@@ -179,6 +180,7 @@ You can donate to the wallet by sending funds to: {{ address }}</br>
 This address changes after every donation.
 </p>
 <p>
+Average time between transactions: {{ time_between_transactions }} hour(s)</br>
 Latest transactions: </br>
 {{#transactions}}
     {{txid}} </br>
@@ -198,6 +200,7 @@ Latest transactions: </br>
               'balance': str_wallet_balance,
               'address': str(proxy.getaccountaddress('')),
               'transactions': transactions[:5],
+              'time_between_transactions': time_between_transactions,
             }
             welcome_page = renderer.render(homepage_template, stats)
             self.wfile.write(str.encode(welcome_page))

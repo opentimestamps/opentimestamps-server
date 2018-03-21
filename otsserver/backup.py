@@ -6,7 +6,7 @@ from opentimestamps.core.serialize import BytesSerializationContext, BytesDeseri
 
 import logging
 
-PAGING = 1000
+PAGING = 100
 
 
 class Backup:
@@ -36,7 +36,7 @@ class Backup:
         return kv_bytes, start, finish
 
     @staticmethod
-    def __bytes_to_kv_map(kv_bytes):
+    def bytes_to_kv_map(kv_bytes):
         ctx = BytesDeserializationContext(kv_bytes)
         new_kv_map = {}
 

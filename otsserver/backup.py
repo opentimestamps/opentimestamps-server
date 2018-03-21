@@ -16,6 +16,7 @@ class Backup:
 
     def create_from(self, start, end):
         backup_map = {}
+        finish=end
         for i in range(start, end):
             try:
                 current = self.journal[i]
@@ -24,13 +25,15 @@ class Backup:
                 # print("\t"+str(current_el))
                 self.__create_kv_map(current_el, current_el.msg, backup_map)
             except KeyError:
-                return None
+                finish=i
+                break
             if i % 100 == 0:
                 logging.info(str(i) + ":" + b2x(self.journal[i]))
 
+        logging.info("map len " + str(len(backup_map)) + " start:" + str(start) + " finish:" + str(finish) )
         kv_bytes = self.__kv_map_to_bytes(backup_map)
 
-        return kv_bytes, start, end-1
+        return kv_bytes, start, finish
 
     @staticmethod
     def __bytes_to_kv_map(kv_bytes):

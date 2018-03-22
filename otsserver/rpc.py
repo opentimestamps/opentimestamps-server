@@ -17,6 +17,7 @@ import threading
 import time
 import pystache
 import datetime 
+from functools import reduce
 
 import bitcoin.core
 from bitcoin.core import b2lx, b2x
@@ -162,6 +163,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             a_week_ago = (datetime.date.today() - datetime.timedelta(days=7)).timetuple()
             a_week_ago_posix = time.mktime(a_week_ago)
             transactions_in_last_week = list(filter(lambda x: x["time"] > a_week_ago_posix, transactions))
+            fees_in_last_week = reduce(lambda a,b: a-b["fee"], transactions_in_last_week, 0)
             time_between_transactions = round(168 / len(transactions_in_last_week)) # in hours based on 168 hours in a week
             transactions.sort(key=lambda x: x["confirmations"])
             homepage_template = """<html>
@@ -185,6 +187,7 @@ This address changes after every donation.
 </p>
 <p>
 Average time between transactions in the last week: {{ time_between_transactions }} hour(s)</br>
+Fees used in the last week: {{ fees_in_last_week }} BTC</br>
 Latest transactions: </br>
 {{#transactions}}
     {{txid}} </br>
@@ -205,6 +208,7 @@ Latest transactions: </br>
               'address': str(proxy.getaccountaddress('')),
               'transactions': transactions[:5],
               'time_between_transactions': time_between_transactions,
+              'fees_in_last_week': fees_in_last_week,
             }
             welcome_page = renderer.render(homepage_template, stats)
             self.wfile.write(str.encode(welcome_page))

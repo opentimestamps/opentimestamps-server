@@ -6,7 +6,7 @@ from opentimestamps.core.serialize import BytesSerializationContext, BytesDeseri
 
 import logging
 
-PAGING = 100
+PAGING = 10000
 
 
 class Backup:
@@ -14,9 +14,11 @@ class Backup:
         self.journal = journal
         self.calendar = calendar
 
-    def create_from(self, start, end):
+    def create_from(self, chunk):
         backup_map = {}
-        finish = end
+        start = chunk*PAGING
+        end = start+PAGING
+
         for i in range(start, end):
             try:
                 current = self.journal[i]
@@ -25,15 +27,14 @@ class Backup:
                 # print("\t"+str(current_el))
                 self.__create_kv_map(current_el, current_el.msg, backup_map)
             except KeyError:
-                finish=i
-                break
+                return None
             if i % 100 == 0:
                 logging.info(str(i) + ":" + b2x(self.journal[i]))
 
         logging.info("map len " + str(len(backup_map)) + " start:" + str(start) + " finish:" + str(finish))
         kv_bytes = self.__kv_map_to_bytes(backup_map)
 
-        return kv_bytes, start, finish - 1
+        return kv_bytes
 
     @staticmethod
     def bytes_to_kv_map(kv_bytes):
@@ -79,67 +80,3 @@ class Backup:
             ctx.write_bytes(value)
 
         return ctx.getbytes()
-
-
-def parse_range_header(value):
-    """Parses a range header into tuple. 
-    If the header is missing or malformed `None` is returned.
-    `ranges` is a list of ``(start, stop)`` tuples where the ranges are
-    non-inclusive.
-    .. versionadded:: 0.7
-    """
-    if not value or '=' not in value:
-        return None
-
-    ranges = []
-    last_end = 0
-    units, rng = value.split('=', 1)
-    units = units.strip().lower()
-
-    for item in rng.split(','):
-        item = item.strip()
-        if '-' not in item:
-            return None
-        if item.startswith('-'):
-            if last_end < 0:
-                return None
-            begin = int(item)
-            end = None
-            last_end = -1
-        elif '-' in item:
-            begin, end = item.split('-', 1)
-            begin = int(begin)
-            if begin < last_end or last_end < 0:
-                return None
-            if end:
-                end = int(end) + 1
-                if begin >= end:
-                    return None
-            else:
-                end = None
-            last_end = end
-        ranges.append((begin, end))
-
-    return units, ranges
-
-
-def parse_range_commitments(comm_range):
-
-    # range specified is not about commitments
-    if comm_range is None or comm_range[0] != 'commitments':
-        return None, None
-
-    # cannot parse the start
-    if comm_range[1] is None or comm_range[1][0] is None or comm_range[1][0][0] is None:
-        return None, None
-
-    start_from = comm_range[1][0][0]
-
-    up_to = comm_range[1][0][1]
-    if up_to is None:
-        up_to = start_from + PAGING
-    else:
-        if up_to > start_from + PAGING:
-            return None, None
-
-    return start_from, up_to

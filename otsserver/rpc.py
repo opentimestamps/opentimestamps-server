@@ -67,16 +67,15 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
 
     def get_backup(self):
-        comm_range = parse_range_header(self.headers.get('Range'))
-        (start_from, up_to) = parse_range_commitments(comm_range)
-        if start_from is None:
-            self.send_response(200)
-            self.send_header('Accept-Ranges', 'commitments')
-            self.send_header('Content-Length', '')  # We don't keep track how many commitment we have
-            self.end_headers()
+        chunk = self.path[len('/experimental/backup/'):]
+        try:
+            chunk = int(chunk)
+        except:
+            self.send_response(404)
+            self.send_header('Content-type', 'text/plain')
             return
 
-        (result, start, end) = self.backup.create_from(start_from, up_to)
+        result = self.backup.create_from(chunk)
 
         if result is None:
             self.send_response(404)
@@ -86,7 +85,6 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type', 'application/octet-stream')
         self.send_header('Cache-Control', 'public, max-age=10')
-        self.send_header('Content-Range', 'commitments %d-%d' % (start, end))
         self.end_headers()
         self.wfile.write(result)
 
@@ -222,7 +220,7 @@ This address changes after every donation.
             self.get_timestamp()
         elif self.path == '/tip':
             self.get_tip()
-        elif self.path == '/backup':
+        elif self.path.startswith == '/experimental/backup/':
             self.get_backup()
         else:
             self.send_response(404)

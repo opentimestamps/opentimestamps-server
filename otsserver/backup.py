@@ -6,7 +6,7 @@ from opentimestamps.core.serialize import BytesSerializationContext, BytesDeseri
 
 import logging
 
-PAGING = 10000
+PAGING = 1000
 
 
 class Backup:
@@ -18,7 +18,6 @@ class Backup:
         backup_map = {}
         start = chunk*PAGING
         end = start+PAGING
-
         for i in range(start, end):
             try:
                 current = self.journal[i]
@@ -31,7 +30,7 @@ class Backup:
             if i % 100 == 0:
                 logging.info(str(i) + ":" + b2x(self.journal[i]))
 
-        logging.info("map len " + str(len(backup_map)) + " start:" + str(start) + " finish:" + str(finish))
+        logging.info("map len " + str(len(backup_map)) + " start:" + str(start) + " end:" + str(end))
         kv_bytes = self.__kv_map_to_bytes(backup_map)
 
         return kv_bytes

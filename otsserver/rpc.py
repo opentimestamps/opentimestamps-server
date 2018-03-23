@@ -73,6 +73,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         except:
             self.send_response(404)
             self.send_header('Content-type', 'text/plain')
+            self.end_headers()
             return
 
         result = self.backup.create_from(chunk)
@@ -80,6 +81,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         if result is None:
             self.send_response(404)
             self.send_header('Content-type', 'text/plain')
+            self.end_headers()
             return
 
         self.send_response(200)
@@ -220,7 +222,7 @@ This address changes after every donation.
             self.get_timestamp()
         elif self.path == '/tip':
             self.get_tip()
-        elif self.path.startswith == '/experimental/backup/':
+        elif self.path.startswith('/experimental/backup/'):
             self.get_backup()
         else:
             self.send_response(404)

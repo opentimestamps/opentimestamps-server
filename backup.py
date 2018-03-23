@@ -48,13 +48,14 @@ except FileNotFoundError as exp:
     last_known = -1
 print("Checking calendar " + str(calendar) + ", last_known commitment:" + str(last_known))
 # TODO ask from up_to
-backup_url = urljoin(calendar, "/backup")
+
 db = leveldb.LevelDB(db_dir)
 
 while True:
-    headers = {"Range": "commitments=%d-" % (last_known+1)}
+    backup_url = urljoin(calendar, "/experimental/backup/%d" % (last_known + 1))
+    print(str(backup_url))
     try:
-        r = requests.get(backup_url, headers=headers)
+        r = requests.get(backup_url)
     except Exception as err:
         print("Exception asking " + str(backup_url) + " message " + str(err))
         break
@@ -62,22 +63,6 @@ while True:
     if r.status_code != 200:
         print("Status code not 200")
         break
-
-    print("headers: " + str(r.headers))
-    content_range = r.headers['Content-Range']
-    if content_range is None:
-        print("Server doesn't answer with content range")
-        break
-
-    finish = None
-    try:
-        dash = content_range.find('-')
-        start = int(content_range[len('commitments '):dash])
-        finish = int(content_range[dash+1:])
-    except:
-        print("Cannot parse start and end element")
-        break
-    print("commitments received (%d,%d)" % (start, finish))
 
     # print(r.raw.read(10))
     kv_map = backup.Backup.bytes_to_kv_map(r.content)
@@ -137,16 +122,13 @@ while True:
         batch.Put(key, value)
     db.Write(batch, sync=True)
 
+    last_known = last_known+1
     try:
         with open(up_to, 'w') as up_to_fd:
-            up_to_fd.write('%d\n' % finish)
+            up_to_fd.write('%d\n' % last_known)
     except FileNotFoundError as exp:
         idx = 0
 
-    last_known = finish
-    if finish-start < 99:
-        print("Received less than 100 commitments, stopping")
-        break
 
 
 

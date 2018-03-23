@@ -19,7 +19,7 @@ import time
 import bitcoin.core
 from bitcoin.core import b2lx, b2x
 
-from otsserver.backup import Backup, parse_range_header, parse_range_commitments
+from otsserver.backup import Backup
 import otsserver
 from opentimestamps.core.serialize import StreamSerializationContext
 

@@ -76,7 +76,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        result = self.backup.create_from(chunk)
+        result = self.backup[chunk]
 
         if result is None:
             self.send_response(404)
@@ -243,7 +243,7 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
         rpc_request_handler.calendar = calendar
 
         journal = Journal(calendar.path + '/journal')
-        rpc_request_handler.backup = Backup(journal, calendar)
+        rpc_request_handler.backup = Backup(journal, calendar, calendar.path + '/backup_cache')
 
         super().__init__(server_address, rpc_request_handler)
 

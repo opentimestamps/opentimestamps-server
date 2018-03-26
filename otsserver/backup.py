@@ -92,7 +92,7 @@ class Backup:
     @staticmethod
     def __kv_map_to_bytes(kv_map):
         ctx = BytesSerializationContext()
-        for key, value in kv_map.items():
+        for key, value in sorted(kv_map.items()):
             ctx.write_varuint(len(key))
             ctx.write_bytes(key)
             ctx.write_varuint(len(value))

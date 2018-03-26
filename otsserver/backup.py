@@ -106,7 +106,7 @@ class Backup:
 
         try:
             cache_file = self.cache_path + '/' + chunk_path + '/' + chunk_str
-            with open(cache_file, 'r') as fd:
+            with open(cache_file, 'rb') as fd:
                 return fd.read()
         except FileNotFoundError as err:
             return None
@@ -117,7 +117,7 @@ class Backup:
         cache_path = self.cache_path + '/' + chunk_path
         os.makedirs(cache_path, exist_ok=True)
         cache_file = cache_path + '/' + chunk_str
-        with open(cache_file, 'w') as fd:
+        with open(cache_file, 'wb') as fd:
             fd.write(bytes)
 
 

@@ -86,7 +86,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
         self.send_response(200)
         self.send_header('Content-type', 'application/octet-stream')
-        self.send_header('Cache-Control', 'public, max-age=10')
+        self.send_header('Cache-Control', 'public, max-age=31536000')
         self.end_headers()
         self.wfile.write(result)
 

@@ -101,7 +101,7 @@ class Backup:
         return ctx.getbytes()
 
     def read_disk_cache(self, chunk):
-        chunk_str = "{0:0>7}".format(chunk)
+        chunk_str = "{0:0>6}".format(chunk)
         chunk_path = chunk_str[0:3]
 
         try:
@@ -112,7 +112,7 @@ class Backup:
             return None
 
     def write_disk_cache(self, chunk, bytes):
-        chunk_str = "{0:0>7}".format(chunk)
+        chunk_str = "{0:0>6}".format(chunk)
         chunk_path = chunk_str[0:3]
         cache_path = self.cache_path + '/' + chunk_path
         os.makedirs(cache_path, exist_ok=True)

@@ -76,7 +76,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        result = self.backup.create_from(chunk)
+        result = self.backup[chunk]
 
         if result is None:
             self.send_response(404)

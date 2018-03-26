@@ -114,7 +114,9 @@ class Backup:
     def write_disk_cache(self, chunk, bytes):
         chunk_str = "{0:0>7}".format(chunk)
         chunk_path = chunk_str[0:3]
-        cache_file = self.cache_path + '/' + chunk_path + '/' + chunk_str
+        cache_path = self.cache_path + '/' + chunk_path
+        os.makedirs(cache_path, exist_ok=True)
+        cache_file = cache_path + '/' + chunk_str
         with open(cache_file, 'w') as fd:
             fd.write(bytes)
 

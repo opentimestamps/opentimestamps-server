@@ -27,6 +27,7 @@ class Backup:
         self.journal = journal
         self.calendar = calendar
         self.cache_path = cache_path
+        os.makedirs(cache_path, exist_ok=True)
 
     def __getitem__(self, chunk):
         cached_kv_bytes = self.read_disk_cache(chunk)

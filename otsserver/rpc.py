@@ -243,7 +243,7 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
         rpc_request_handler.calendar = calendar
 
         journal = Journal(calendar.path + '/journal')
-        rpc_request_handler.backup = Backup(journal, calendar)
+        rpc_request_handler.backup = Backup(journal, calendar, calendar.path + '/backup_cache')
 
         super().__init__(server_address, rpc_request_handler)
 

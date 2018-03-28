@@ -19,7 +19,7 @@ import time
 from urllib.parse import urlparse, urljoin
 
 PAGING = 1000  # Number of commitments per chunk
-SLEEP_SECS = 600  # Once the backup is synced this is the polling interval to check for new chunks
+SLEEP_SECS = 60  # Once the backup is synced this is the polling interval to check for new chunks
 
 
 class Backup:

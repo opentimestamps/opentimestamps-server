@@ -244,7 +244,7 @@ class AskBackup(threading.Thread):
                 logging.error("Exception asking " + str(backup_url) + " message " + str(err))
                 break
 
-            if r.status_code == 404:
+            if r.status_code != 200:
                 logging.info("%s not found, sleeping for %s seconds" % (backup_url, SLEEP_SECS) )
                 time.sleep(SLEEP_SECS)
                 continue

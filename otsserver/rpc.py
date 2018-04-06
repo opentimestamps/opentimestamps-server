@@ -15,6 +15,9 @@ import os
 import socketserver
 import threading
 import time
+import pystache
+import datetime 
+from functools import reduce
 
 import bitcoin.core
 from bitcoin.core import b2lx, b2x
@@ -24,7 +27,7 @@ import otsserver
 from opentimestamps.core.serialize import StreamSerializationContext
 
 from otsserver.calendar import Journal
-
+renderer = pystache.Renderer()
 
 class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     MAX_DIGEST_LENGTH = 64
@@ -181,42 +184,62 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             # need to investigate further, but this seems to work.
             str_wallet_balance = str(proxy._call("getbalance"))
 
-            welcome_page = """\
-<html>
+            transactions = proxy._call("listtransactions", "", 50)
+            # We want only the confirmed txs containing an OP_RETURN, from most to least recent
+            transactions = list(filter(lambda x: x["confirmations"] > 0 and x["amount"] == 0, transactions))
+            a_week_ago = (datetime.date.today() - datetime.timedelta(days=7)).timetuple()
+            a_week_ago_posix = time.mktime(a_week_ago)
+            transactions_in_last_week = list(filter(lambda x: x["time"] > a_week_ago_posix, transactions))
+            fees_in_last_week = reduce(lambda a,b: a-b["fee"], transactions_in_last_week, 0)
+            time_between_transactions = round(168 / len(transactions_in_last_week)) # in hours based on 168 hours in a week
+            transactions.sort(key=lambda x: x["confirmations"])
+            homepage_template = """<html>
 <head>
     <title>OpenTimestamps Calendar Server</title>
 </head>
 <body>
-<p>This is an <a href="https://opentimestamps.org">OpenTimestamps</a> <a href="https://github.com/opentimestamps/opentimestamps-server">Calendar Server</a> (v%s)</p>
-
+<p>This is an <a href="https://opentimestamps.org">OpenTimestamps</a> <a href="https://github.com/opentimestamps/opentimestamps-server">Calendar Server</a> (v{{ version }})</p>
 <p>
-Pending commitments: %d</br>
-Transactions waiting for confirmation: %d</br>
-Most recent timestamp tx: %s (%d prior versions)</br>
-Most recent merkle tree tip: %s</br>
-Best-block: %s, height %d</br>
+Pending commitments: {{ pending_commitments }}</br>
+Transactions waiting for confirmation: {{ txs_waiting_for_confirmation }}</br>
+Most recent timestamp tx: {{ most_recent_tx }} ({{ prior_versions }} prior versions)</br>
+Most recent merkle tree tip: {{ tip }}</br>
+Best-block: {{ best_block }}, height {{ block_height }}</br>
 </br>
-Wallet balance: %s BTC</br>
+Wallet balance: {{ balance }} BTC</br>
 </p>
-
 <p>
-You can donate to the wallet by sending funds to: %s</br>
+You can donate to the wallet by sending funds to: {{ address }}</br>
 This address changes after every donation.
 </p>
-
+<p>
+Average time between transactions in the last week: {{ time_between_transactions }} hour(s)</br>
+Fees used in the last week: {{ fees_in_last_week }} BTC</br>
+Latest transactions: </br>
+{{#transactions}}
+    {{txid}} </br>
+{{/transactions}}
+</p>
 </body>
-</html>
-""" % (otsserver.__version__,
-       len(self.calendar.stamper.pending_commitments),
-       len(self.calendar.stamper.txs_waiting_for_confirmation),
-       b2lx(self.calendar.stamper.unconfirmed_txs[-1].tx.GetTxid()) if self.calendar.stamper.unconfirmed_txs else 'None',
-       max(0, len(self.calendar.stamper.unconfirmed_txs) - 1),
-       b2x(self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg) if self.calendar.stamper.unconfirmed_txs else 'None',
-       bitcoin.core.b2lx(proxy.getbestblockhash()), proxy.getblockcount(),
-       str_wallet_balance,
-       str(proxy.getaccountaddress('')))
+</html>"""
 
-            self.wfile.write(welcome_page.encode())
+            stats = { 'version': otsserver.__version__,
+              'pending_commitments': len(self.calendar.stamper.pending_commitments),
+              'txs_waiting_for_confirmation':len(self.calendar.stamper.txs_waiting_for_confirmation),
+              'most_recent_tx': b2lx(self.calendar.stamper.unconfirmed_txs[-1].tx.GetTxid()) if self.calendar.stamper.unconfirmed_txs else 'None',
+              'prior_versions': max(0, len(self.calendar.stamper.unconfirmed_txs) - 1),
+              'tip': b2x(self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg) if self.calendar.stamper.unconfirmed_txs else 'None',
+              'best_block': bitcoin.core.b2lx(proxy.getbestblockhash()),
+              'block_height': proxy.getblockcount(),
+              'balance': str_wallet_balance,
+              'address': str(proxy.getaccountaddress('')),
+              'transactions': transactions[:5],
+              'time_between_transactions': time_between_transactions,
+              'fees_in_last_week': fees_in_last_week,
+            }
+            welcome_page = renderer.render(homepage_template, stats)
+            self.wfile.write(str.encode(welcome_page))
+
 
         elif self.path.startswith('/timestamp/'):
             self.get_timestamp()

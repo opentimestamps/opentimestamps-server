@@ -47,6 +47,12 @@ parser.add_argument("--rpc-address", type=str,
                     default='localhost',
                     help="RPC address (default: %(default)s)")
 
+parser.add_argument('--btc-testnet', dest='btc_net', action='store_const',
+                    const='testnet', default='mainnet',
+                    help='Use Bitcoin testnet rather than mainnet')
+parser.add_argument('--btc-regtest', dest='btc_net', action='store_const',
+                    const='regtest',
+                    help='Use Bitcoin regtest rather than mainnet')
 
 args = parser.parse_args()
 args.parser = parser
@@ -77,14 +83,13 @@ elif args.verbosity == -1:
 elif args.verbosity < -1:
     logging.root.setLevel(logging.ERROR)
 
-
 db = otsserver.calendar.LevelDbCalendar(db_dir)
 calendar = otsserver.backup.BackupCalendar(db)
 server = otsserver.backup.BackupServer((args.rpc_address, args.rpc_port), calendar)
 
 for calendar_url in args.calendar:
     print("Starting calendar checker for %s" % calendar_url)
-    ask_thread = otsserver.backup.AskBackup(db, calendar_url, base_path)
+    ask_thread = otsserver.backup.AskBackup(db, calendar_url, base_path, args.btc_net)
     ask_thread.start()
 
 try:

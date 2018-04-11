@@ -40,6 +40,7 @@ class Backup:
         if cached_kv_bytes is not None:
             return cached_kv_bytes
 
+        # TODO next code must be run only once, LOCK or something
         backup_map = {}
         start = chunk*PAGING
         end = start+PAGING
@@ -216,11 +217,12 @@ class BackupServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 # theoretically serve timestamp in place of every calendar server which supports this incremental live backup mechanism
 class AskBackup(threading.Thread):
 
-    def __init__(self, db, calendar_url, base_path):
+    def __init__(self, db, calendar_url, base_path, btc_net):
         self.db = db
         self.calendar_url = calendar_url
         calendar_url_parsed = urlparse(calendar_url)
         self.up_to_path = os.path.join(base_path, calendar_url_parsed.netloc)
+        self.btc_net = btc_net
 
         super().__init__(target=self.loop)
 
@@ -228,11 +230,17 @@ class AskBackup(threading.Thread):
         logging.info("Starting loop for %s" % self.calendar_url)
 
         try:
+            logging.debug("Opening %s" % self.up_to_path)
             with open(self.up_to_path, 'r') as up_to_fd:
                 last_known = int(up_to_fd.read().strip())
         except FileNotFoundError as exp:
             last_known = -1
         logging.info("Checking calendar " + str(self.calendar_url) + ", last_known commitment:" + str(last_known))
+
+        if self.btc_net == 'testnet':
+            bitcoin.SelectParams('testnet')
+        elif self.btc_net == 'regtest':
+            bitcoin.SelectParams('regtest')
 
         while True:
             start_time = time.time()

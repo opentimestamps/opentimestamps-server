@@ -71,17 +71,11 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
     def get_backup(self):
         chunk = self.path[len('/experimental/backup/'):]
+        result = b''
         try:
             chunk = int(chunk)
+            result = self.backup[chunk]
         except:
-            self.send_response(404)
-            self.send_header('Content-type', 'text/plain')
-            self.end_headers()
-            return
-
-        result = self.backup[chunk]
-
-        if result is None:
             self.send_response(404)
             self.send_header('Content-type', 'text/plain')
             self.end_headers()

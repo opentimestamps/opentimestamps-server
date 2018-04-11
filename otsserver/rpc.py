@@ -71,7 +71,6 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
     def get_backup(self):
         chunk = self.path[len('/experimental/backup/'):]
-        result = b''
         try:
             chunk = int(chunk)
             result = self.backup[chunk]
@@ -81,6 +80,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        assert result is not None
         self.send_response(200)
         self.send_header('Content-type', 'application/octet-stream')
         self.send_header('Cache-Control', 'public, max-age=31536000')

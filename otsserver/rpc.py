@@ -165,9 +165,10 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             transactions_in_last_week = list(filter(lambda x: x["time"] > a_week_ago_posix, transactions))
             fees_in_last_week = reduce(lambda a,b: a-b["fee"], transactions_in_last_week, 0)
             try:
-                time_between_transactions = round(168 / len(transactions_in_last_week)) # in hours based on 168 hours in a week
+                time_between_transactions = str(round(168 / len(transactions_in_last_week))) # in hours based on 168 hours in a week
+                time_between_transactions += " hour(s)"
             except ZeroDivisionError:
-                time_between_transactions = "Infinite"
+                time_between_transactions = "N/A"
             transactions.sort(key=lambda x: x["confirmations"])
             homepage_template = """<html>
 <head>
@@ -189,7 +190,7 @@ You can donate to the wallet by sending funds to: {{ address }}</br>
 This address changes after every donation.
 </p>
 <p>
-Average time between transactions in the last week: {{ time_between_transactions }} hour(s)</br>
+Average time between transactions in the last week: {{ time_between_transactions }} </br>
 Fees used in the last week: {{ fees_in_last_week }} BTC</br>
 Latest transactions: </br>
 {{#transactions}}

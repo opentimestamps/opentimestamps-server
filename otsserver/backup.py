@@ -18,8 +18,8 @@ import requests
 import time
 from urllib.parse import urlparse, urljoin
 
-PAGING = 1000
-SLEEP_SECS = 600
+PAGING = 1000  # Number of commitments per chunk
+SLEEP_SECS = 60  # Once the backup is synced this is the polling interval to check for new chunks
 
 
 class Backup:
@@ -29,7 +29,13 @@ class Backup:
         self.cache_path = cache_path
         os.makedirs(cache_path, exist_ok=True)
 
+    # Return the bytes of the chunk
     def __getitem__(self, chunk):
+
+        # We use a disk cache, creating a chunk of 1000 commitments is a quite expensive operation of about 10s.
+        # The server isn't blocked in the meantime but this could be used by an attacker to degrade calendar performance
+        # Moreover is not recommended to set up an HTTP cache more than one year (see RFC 2616), thus, a disk cache is
+        #  mandatory.
         cached_kv_bytes = self.read_disk_cache(chunk)
         if cached_kv_bytes is not None:
             return cached_kv_bytes
@@ -37,19 +43,22 @@ class Backup:
         backup_map = {}
         start = chunk*PAGING
         end = start+PAGING
-        for i in range(start, end)[::-1]:  # iterate in reverse to fail fast
+
+        # Iterate in reverse to fail fast if this chunk is not complete, a chunk is considered complete if all relative
+        # 1000 commitments are complete. Which means a tx with more of 6 confirmations timestamp them
+        for i in range(start, end)[::-1]:
             try:
                 current = self.journal[i]
-                # print(str(i) +":"+b2x(journal[i]))
                 current_el = self.calendar[current]
-                # print("\t"+str(current_el))
                 self.__create_kv_map(current_el, current_el.msg, backup_map)
             except KeyError:
+                # according to https://docs.python.org/3/library/exceptions.html#IndexError IndexError is the more
+                # appropriate exception for this case
                 raise IndexError
             if i % 100 == 0:
-                logging.info(str(i) + ":" + b2x(self.journal[i]))
+                logging.debug("Got commitment " + str(i) + ":" + b2x(self.journal[i]))
 
-        logging.info("map len " + str(len(backup_map)) + " start:" + str(start) + " end:" + str(end))
+        logging.debug("map len " + str(len(backup_map)) + " start:" + str(start) + " end:" + str(end))
         kv_bytes = self.__kv_map_to_bytes(backup_map)
         self.write_disk_cache(chunk, kv_bytes)
 
@@ -92,6 +101,7 @@ class Backup:
     @staticmethod
     def __kv_map_to_bytes(kv_map):
         ctx = BytesSerializationContext()
+        # Sorting the map elements to create chunks deterministically, but this is not mandatory for importing the chunk
         for key, value in sorted(kv_map.items()):
             ctx.write_varuint(len(key))
             ctx.write_bytes(key)
@@ -101,8 +111,11 @@ class Backup:
         return ctx.getbytes()
 
     def read_disk_cache(self, chunk):
+        # For the disk cache we are using 6 digits file name which will support a total of 1 billion commitments,
+        # because every chunk contain 1000 commitments. Supposing 1 commitment per second this could last for 32 years
+        # which appear to be ok for this version
         chunk_str = "{0:0>6}".format(chunk)
-        chunk_path = chunk_str[0:3]
+        chunk_path = chunk_str[0:3]  # we create a path to avoid creating more than 1000 files per directory
 
         try:
             cache_file = self.cache_path + '/' + chunk_path + '/' + chunk_str
@@ -120,7 +133,8 @@ class Backup:
         with open(cache_file, 'wb') as fd:
             fd.write(bytes)
 
-
+# The following is a shrinked version of the standard calendar http server, it only support the '/timestamp' endpoint
+# This way the backup server could serve request in place of the calendar serve which is backupping
 class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
@@ -197,6 +211,9 @@ class BackupServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
         super().serve_forever()
 
 
+# This is the thread responsible for asking the chunks to the running calendar and import them in the db.
+# The main script allow to launch 1 thread of this for every calendar to backup, thus a backup server could
+# theoretically serve timestamp in place of every calendar server which supports this incremental live backup mechanism
 class AskBackup(threading.Thread):
 
     def __init__(self, db, calendar_url, base_path):
@@ -208,36 +225,33 @@ class AskBackup(threading.Thread):
         super().__init__(target=self.loop)
 
     def loop(self):
-        print("Starting loop for %s" % self.calendar_url)
+        logging.info("Starting loop for %s" % self.calendar_url)
 
         try:
             with open(self.up_to_path, 'r') as up_to_fd:
                 last_known = int(up_to_fd.read().strip())
         except FileNotFoundError as exp:
             last_known = -1
-        print("Checking calendar " + str(self.calendar_url) + ", last_known commitment:" + str(last_known))
+        logging.info("Checking calendar " + str(self.calendar_url) + ", last_known commitment:" + str(last_known))
 
         while True:
             start_time = time.time()
             backup_url = urljoin(self.calendar_url, "/experimental/backup/%d" % (last_known + 1))
-            print(str(backup_url))
+            logging.debug("Asking " + str(backup_url))
             try:
                 r = requests.get(backup_url)
             except Exception as err:
-                print("Exception asking " + str(backup_url) + " message " + str(err))
+                logging.error("Exception asking " + str(backup_url) + " message " + str(err))
                 break
 
-            if r.status_code == 404:
-                print("%s not found, sleeping for %s seconds" % (backup_url, SLEEP_SECS) )
+            if r.status_code != 200:
+                logging.info("%s not found, sleeping for %s seconds" % (backup_url, SLEEP_SECS) )
                 time.sleep(SLEEP_SECS)
                 continue
 
-            # print(r.raw.read(10))
             kv_map = Backup.bytes_to_kv_map(r.content)
-            # print(str(map))
             attestations = {}
             ops = {}
-            print("kv_maps elements " + str(len(kv_map)))
             for key, value in kv_map.items():
                 # print("--- key=" + b2x(key) + " value=" + b2x(value))
                 ctx = BytesDeserializationContext(value)
@@ -252,31 +266,28 @@ class AskBackup(threading.Thread):
 
             proxy = bitcoin.rpc.Proxy()
 
-            # verify all bitcoin attestation are valid
-            print("total attestations: " + str(len(attestations)))
+            # Verify all bitcoin attestation are valid
+            logging.debug("Total attestations: " + str(len(attestations)))
             for key, attestation in attestations.items():
                 if attestation.__class__ == BitcoinBlockHeaderAttestation:
                     blockhash = proxy.getblockhash(attestation.height)
                     block_header = proxy.getblockheader(blockhash)
+                    # the following raise an exception and block computation if the attestation does not verify
                     attested_time = attestation.verify_against_blockheader(key, block_header)
-                    print("verifying " + b2x(key) + " result " + str(attested_time))
+                    logging.debug("Verifying " + b2x(key) + " result " + str(attested_time))
 
             # verify all ops connects to an attestation
-            print("total ops: " + str(len(ops)))
+            logging.debug("Total ops: " + str(len(ops)))
             for key, op in ops.items():
-
-                # print("key " + b2x(key) + " op " + str(op))
                 current_key = key
                 current_op = op
                 while True:
                     next_key = current_op(current_key)
-                    # print("next_key " + b2x(next_key))
                     if next_key in ops:
                         current_key = next_key
                         current_op = ops[next_key]
                     else:
                         break
-                # print("maps to " + b2x(next_key))
                 assert next_key in attestations
 
             batch = leveldb.WriteBatch()
@@ -289,11 +300,11 @@ class AskBackup(threading.Thread):
                 with open(self.up_to_path, 'w') as up_to_fd:
                     up_to_fd.write('%d\n' % last_known)
             except FileNotFoundError as exp:
-                print(str(exp))
+                logging.error(str(exp))
                 break
 
             elapsed_time = time.time() - start_time
-            print("Took %ds" % elapsed_time)
+            logging.info("Took %ds for %s" % (elapsed_time, str(backup_url)))
 
 
 

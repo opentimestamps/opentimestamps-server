@@ -249,11 +249,13 @@ class AskBackup(threading.Thread):
             try:
                 r = requests.get(backup_url)
             except Exception as err:
-                logging.error("Exception asking " + str(backup_url) + " message " + str(err))
-                break
+                logging.error("Exception asking %s error message %s, sleeping for %d seconds"
+                              % (str(backup_url), str(err), SLEEP_SECS))
+                time.sleep(SLEEP_SECS)
+                continue
 
             if r.status_code != 200:
-                logging.info("%s not found, sleeping for %s seconds" % (backup_url, SLEEP_SECS) )
+                logging.info("%s not found, sleeping for %d seconds" % (backup_url, SLEEP_SECS))
                 time.sleep(SLEEP_SECS)
                 continue
 

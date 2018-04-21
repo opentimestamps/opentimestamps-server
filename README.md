@@ -16,17 +16,6 @@ node is fine. While `otsd` is running the wallet should not be used for other
 purposes, as currently the Bitcoin timestamping functionality assumes that it
 has exclusive use of the wallet.
 
-First make sure the following is in your `~/.bitcoin/bitcoin.conf` file:
-
-```
-# Currently only password authentication is supported
-rpcuser=CHANGETHIS
-rpcpassword=CHANGETHIS
-
-# Segwit is not yet supported
-rpcserialversion=0
-```
-
 Install the requirements:
 
 ```

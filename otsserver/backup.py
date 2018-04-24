@@ -1,6 +1,14 @@
-#!/usr/bin/env python3
-import otsserver
-from otsserver.calendar import Journal
+# Copyright (C) 2018 The OpenTimestamps developers
+#
+# This file is part of the OpenTimestamps Server.
+#
+# It is subject to the license terms in the LICENSE file found in the top-level
+# directory of this distribution.
+#
+# No part of the OpenTimestamps Server, including this file, may be copied,
+# modified, propagated, or distributed except according to the terms contained
+# in the LICENSE file.
+
 from bitcoin.core import b2x
 from opentimestamps.core.notary import TimeAttestation, BitcoinBlockHeaderAttestation
 from opentimestamps.core.op import Op

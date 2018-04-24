@@ -139,8 +139,10 @@ class Backup:
         cache_path = self.cache_path + '/' + chunk_path
         os.makedirs(cache_path, exist_ok=True)
         cache_file = cache_path + '/' + chunk_str
-        with open(cache_file, 'wb') as fd:
+        cache_file_tmp = cache_file + '.tmp'
+        with open(cache_file_tmp, 'wb') as fd:
             fd.write(bytes)
+        os.rename(cache_file_tmp, cache_file)  # rename is atomic
 
 # The following is a shrinked version of the standard calendar http server, it only support the '/timestamp' endpoint
 # This way the backup server could serve request in place of the calendar serve which is backupping

@@ -23,6 +23,7 @@ import os
 import threading
 import binascii
 import requests
+from tempfile import NamedTemporaryFile
 import time
 from urllib.parse import urlparse, urljoin
 
@@ -139,10 +140,10 @@ class Backup:
         cache_path = self.cache_path + '/' + chunk_path
         os.makedirs(cache_path, exist_ok=True)
         cache_file = cache_path + '/' + chunk_str
-        cache_file_tmp = cache_file + '.tmp'
-        with open(cache_file_tmp, 'wb') as fd:
-            fd.write(bytes)
-        os.rename(cache_file_tmp, cache_file)  # rename is atomic
+        temp_file = NamedTemporaryFile(delete=False)
+        temp_file.write(bytes)
+        temp_file.close()
+        os.rename(temp_file.name, cache_file)  # rename is atomic
 
 # The following is a shrinked version of the standard calendar http server, it only support the '/timestamp' endpoint
 # This way the backup server could serve request in place of the calendar serve which is backupping

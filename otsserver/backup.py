@@ -140,7 +140,7 @@ class Backup:
         cache_path = self.cache_path + '/' + chunk_path
         os.makedirs(cache_path, exist_ok=True)
         cache_file = cache_path + '/' + chunk_str
-        temp_file = NamedTemporaryFile(delete=False)
+        temp_file = NamedTemporaryFile(delete=False, dir=cache_path)
         temp_file.write(bytes)
         temp_file.close()
         os.rename(temp_file.name, cache_file)  # rename is atomic

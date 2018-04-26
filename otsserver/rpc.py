@@ -22,10 +22,13 @@ from functools import reduce
 import bitcoin.core
 from bitcoin.core import b2lx, b2x
 
+from otsserver.backup import Backup
 import otsserver
 from opentimestamps.core.serialize import StreamSerializationContext
 
+from otsserver.calendar import Journal
 renderer = pystache.Renderer()
+
 class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     MAX_DIGEST_LENGTH = 64
     """Largest digest that can be POSTed for timestamping"""
@@ -65,6 +68,24 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(204)
             self.send_header('Cache-Control', 'public, max-age=10')
             self.end_headers()
+
+    def get_backup(self):
+        chunk = self.path[len('/experimental/backup/'):]
+        try:
+            chunk = int(chunk)
+            result = self.backup[chunk]
+        except:
+            self.send_response(404)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            return
+
+        assert result is not None
+        self.send_response(200)
+        self.send_header('Content-type', 'application/octet-stream')
+        self.send_header('Cache-Control', 'public, max-age=31536000')
+        self.end_headers()
+        self.wfile.write(result)
 
     def get_timestamp(self):
         commitment = self.path[len('/timestamp/'):]
@@ -222,7 +243,8 @@ Latest transactions: </br>
             self.get_timestamp()
         elif self.path == '/tip':
             self.get_tip()
-
+        elif self.path.startswith('/experimental/backup/'):
+            self.get_backup()
         else:
             self.send_response(404)
             self.send_header('Content-type', 'text/plain')
@@ -240,6 +262,9 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
             pass
         rpc_request_handler.aggregator = aggregator
         rpc_request_handler.calendar = calendar
+
+        journal = Journal(calendar.path + '/journal')
+        rpc_request_handler.backup = Backup(journal, calendar, calendar.path + '/backup_cache')
 
         super().__init__(server_address, rpc_request_handler)
 

@@ -186,8 +186,8 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             transactions_in_last_week = list(filter(lambda x: x["time"] > a_week_ago_posix, transactions))
             fees_in_last_week = reduce(lambda a,b: a-b["fee"], transactions_in_last_week, 0)
             try:
-                time_between_transactions = str(round(168 / len(transactions_in_last_week))) # in hours based on 168 hours in a week
-                time_between_transactions += " hour(s)"
+                time_between_transactions = str(round(168 / len(transactions_in_last_week), 2)) # in hours based on 168 hours in a week
+                time_between_transactions += " hours"
             except ZeroDivisionError:
                 time_between_transactions = "N/A"
             transactions.sort(key=lambda x: x["confirmations"])

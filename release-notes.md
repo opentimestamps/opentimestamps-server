@@ -1,5 +1,9 @@
 # OpenTimestamps Server Release Notes
 
+## v0.3.0
+
+* Experimental calendar backup scheme
+
 ## v0.2.1
 
 * More informative status page, with stats on latest txs, time between txs, and

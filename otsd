@@ -67,6 +67,11 @@ parser.add_argument("--max-pending", type=int,
                     default=100000,
                     help="Maximum number of pending commitments to timestamp at a time (default: %(default)s)")
 
+parser.add_argument("--commitment-interval", type=float,
+                    dest="commitment_interval",
+                    default=1,
+                    help="Commitment interval (default: %(default).1f seconds)")
+
 parser.add_argument("--btc-min-relay-feerate", metavar='FEEPERKB', type=float,
                     default=0.00001,
                     help="Minimum relay feerate (default: %(default).6f BTC/KB)")
@@ -130,7 +135,7 @@ exit_event = threading.Event()
 calendar_path = os.path.expanduser(args.calendar_path)
 
 calendar = otsserver.calendar.Calendar(calendar_path)
-aggregator = otsserver.calendar.Aggregator(calendar, exit_event)
+aggregator = otsserver.calendar.Aggregator(calendar, exit_event, args.commitment_interval)
 
 stamper = otsserver.stamper.Stamper(calendar, exit_event,
                                     args.btc_min_relay_feerate / 1000 * bitcoin.core.COIN,

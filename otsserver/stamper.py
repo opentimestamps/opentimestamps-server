@@ -480,7 +480,7 @@ class Stamper:
                 # __do_bitcoin() is fairly self-contained.
                 logging.error("__do_bitcoin() failed: %r" % exp, exc_info=True)
 
-            self.exit_event.wait(1)
+            self.exit_event.wait(self.stamper_interval)
 
     def is_pending(self, commitment):
         """Return whether or not a commitment is waiting to be stamped
@@ -500,7 +500,7 @@ class Stamper:
             else:
                 return False
 
-    def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee, max_pending):
+    def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee, max_pending, stamper_interval):
         self.calendar = calendar
         self.exit_event = exit_event
 
@@ -510,6 +510,7 @@ class Stamper:
         self.min_tx_interval = min_tx_interval
         self.max_fee = max_fee
         self.max_pending = max_pending
+        self.stamper_interval = stamper_interval
 
         self.known_blocks = KnownBlocks()
         self.unconfirmed_txs = []

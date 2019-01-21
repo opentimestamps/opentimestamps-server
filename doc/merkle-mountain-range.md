@@ -21,7 +21,7 @@ that array as it is progressively extended with new digests:
 
     0
     00
-    001 <- indexes 0 and 1 are hashed to form index 3
+    001 <- indexes 0 and 1 are hashed to form index 2
     0010
     0010012 <- another tree, which leads to the two subtrees being merged (height 2)
     00100120
@@ -54,8 +54,8 @@ knowing the number of digests in a given mountain range you can always
 efficiently reproduce the peak enclosing the mountain whole range at that point
 in time. At the same time every signature will always sign every digest in the
 mountain range, and like any merkle tree the path lengths from any digest to
-that signature scale by log2(n) Thus determining what signatures are reachable
-from a given digest is just a matter of finding out how many digests are were
+that signature scale by log2(n). Thus determining what signatures are reachable
+from a given digest is just a matter of finding out how many digests were
 in the mountain range in total when the digest was added, and looking for
 signatures added to the range at that width or larger. The storage cost for all
 the intermediate hashes is n-1, and signatures don't even need to store the bag

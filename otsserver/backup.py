@@ -291,11 +291,18 @@ class AskBackup(threading.Thread):
             logging.debug("Total attestations: " + str(len(attestations)))
             for key, attestation in attestations.items():
                 if attestation.__class__ == BitcoinBlockHeaderAttestation:
-                    blockhash = proxy.getblockhash(attestation.height)
-                    block_header = proxy.getblockheader(blockhash)
-                    # the following raise an exception and block computation if the attestation does not verify
-                    attested_time = attestation.verify_against_blockheader(key, block_header)
-                    logging.debug("Verifying " + b2x(key) + " result " + str(attested_time))
+                    while True:
+                        try:
+                            blockhash = proxy.getblockhash(attestation.height)
+                            block_header = proxy.getblockheader(blockhash)
+                            # the following raise an exception and block computation if the attestation does not verify
+                            attested_time = attestation.verify_against_blockheader(key, block_header)
+                            logging.debug("Verifying " + b2x(key) + " result " + str(attested_time))
+                            break;
+                        except Exception as err:
+                            logging.info("%s - error contacting bitcoin node, sleeping..." % (err))
+                            time.sleep(SLEEP_SECS)
+                            proxy = bitcoin.rpc.Proxy()
 
             # verify all ops connects to an attestation
             logging.debug("Total ops: " + str(len(ops)))

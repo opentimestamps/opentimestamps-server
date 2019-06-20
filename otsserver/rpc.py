@@ -178,7 +178,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             # need to investigate further, but this seems to work.
             str_wallet_balance = str(proxy._call("getbalance"))
 
-            transactions = proxy._call("listtransactions", "", 1000)
+            transactions = proxy._call("listtransactions", "*", 1000)
             # We want only the confirmed txs containing an OP_RETURN, from most to least recent
             transactions = list(filter(lambda x: x["confirmations"] > 0 and x["amount"] == 0, transactions))
             a_week_ago = (datetime.date.today() - datetime.timedelta(days=7)).timetuple()

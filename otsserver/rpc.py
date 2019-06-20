@@ -230,7 +230,7 @@ Latest transactions: </br>
               'best_block': bitcoin.core.b2lx(proxy.getbestblockhash()),
               'block_height': proxy.getblockcount(),
               'balance': str_wallet_balance,
-              'address': str(proxy.getaccountaddress('')),
+              'address': proxy._call("getaccountaddress",""),
               'transactions': transactions[:5],
               'time_between_transactions': time_between_transactions,
               'fees_in_last_week': fees_in_last_week,

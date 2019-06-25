@@ -11,7 +11,7 @@ mode.
 
 ## Installation
 
-You'll need a local Bitcoin node with a wallet with some funds in it; a pruned
+You'll need a local Bitcoin node version 0.17.1 with a wallet with some funds in it; a pruned
 node is fine. While `otsd` is running the wallet should not be used for other
 purposes, as currently the Bitcoin timestamping functionality assumes that it
 has exclusive use of the wallet.
@@ -75,6 +75,15 @@ directly to the public. For production usage we recommend using a reverse
 proxy; an example configuration for nginx is provided under the
 `contrib/nginx` directory of this repo.
 
+## Bitcoin core
+
+Bitcoin node must be version 0.17.1 and the following options are needed:
+
+```
+deprecatedrpc=signrawtransaction
+deprecatedrpc=accounts
+addresstype=bech32
+```
 
 ## Unit tests
 

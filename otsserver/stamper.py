@@ -13,7 +13,7 @@ import collections
 import logging
 import threading
 import time
-import sys
+import random
 import bitcoin.rpc
 
 from bitcoin.core import COIN, b2lx, b2x, x, lx, CTxIn, CTxOut, COutPoint, CTransaction, str_money_value
@@ -370,7 +370,7 @@ class Stamper:
 
                 break
 
-        time_to_next_tx = int(self.last_timestamp_tx + self.min_tx_interval - time.time())
+        time_to_next_tx = int(self.last_timestamp_tx + self.min_tx_interval * random.uniform(1, 2) - time.time())
         if time_to_next_tx > 0:
             # Minimum interval between transactions hasn't been reached, so do nothing
             logging.debug("Waiting %ds before next tx" % time_to_next_tx)

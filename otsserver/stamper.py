@@ -16,7 +16,7 @@ import time
 import sys
 import bitcoin.rpc
 
-from bitcoin.core import COIN, b2lx, b2x, CTxIn, CTxOut, CTransaction, str_money_value
+from bitcoin.core import COIN, b2lx, b2x, x, lx, CTxIn, CTxOut, COutPoint, CTransaction, str_money_value
 from bitcoin.core.script import CScript, OP_RETURN
 
 from opentimestamps.bitcoin import cat_sha256d
@@ -161,22 +161,35 @@ def _get_tx_fee(tx, proxy):
     value_out = sum(txout.nValue for txout in tx.vout)
     return value_in - value_out
 
+# not using proxy.listunspent() because it tries to convert bech32 address as base58
+def listunspent(proxy, minconf=0, maxconf=999999):
+    r = proxy._call('listunspent', minconf, maxconf)
+
+    r2 = []
+    for unspent in r:
+        unspent['outpoint'] = COutPoint(lx(unspent['txid']), unspent['vout'])
+        del unspent['txid']
+        del unspent['vout']
+        unspent['scriptPubKey'] = CScript(x(unspent['scriptPubKey']))
+        unspent['amount'] = int(unspent['amount'] * COIN)
+        r2.append(unspent)
+    return r2
+
 def find_unspent(proxy):
     def sort_filter_unspent(unspent):
         DUST = 0.001 * COIN
         return sorted(filter(lambda x: x['amount'] > DUST and x['spendable'], unspent),
                       key=lambda x: x['amount'])
 
-    unspent = sort_filter_unspent(proxy.listunspent(1))
+    unspent = sort_filter_unspent(listunspent(proxy,1))
 
     if len(unspent):
         return unspent
-
     else:
         logging.info("Couldn't find a confirmed output, trying unconfirmed")
 
         # Try again with the unconfirmed transactions
-        unconfirmed_unspent = sort_filter_unspent(proxy.listunspent(0, 1))
+        unconfirmed_unspent = sort_filter_unspent(listunspent(proxy, 0, 1))
 
         confirmed_unspent = []
         for unspent_txout in unconfirmed_unspent:
@@ -377,9 +390,12 @@ class Stamper:
                 logging.error("Can't timestamp; no spendable outputs")
                 return
 
-            change_addr = proxy.getnewaddress()
+            change_addr = proxy._call("getnewaddress", "", "bech32")
+            change_addr_info = proxy._call("getaddressinfo",change_addr)
+            change_addr_script = x(change_addr_info['scriptPubKey'])
+
             prev_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'],
-                                                              change_addr.to_scriptPubKey())
+                                                              change_addr_script)
 
             logging.debug('New timestamp tx, spending output %r, value %s' % (unspent[-1]['outpoint'],
                                                                               str_money_value(unspent[-1]['amount'])))
@@ -457,10 +473,11 @@ class Stamper:
                 # Is this commitment already stamped?
                 if commitment not in self.calendar:
                     self.pending_commitments.add(commitment)
-                    logging.debug('Added %s (idx %d) to pending commitments; %d total'
-                                  % (b2x(commitment), idx, len(self.pending_commitments)))
+                    if idx % 100 == 0:
+                        logging.debug('Added %s (idx %d) to pending commitments; %d total'
+                                      % (b2x(commitment), idx, len(self.pending_commitments)))
                 else:
-                    if idx % 1000 == 0:
+                    if idx % 10000 == 0:
                         logging.debug('Commitment at idx %d already stamped' % idx)
 
                 idx += 1

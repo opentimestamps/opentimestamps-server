@@ -57,7 +57,14 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         timestamp.serialize(ctx)
 
     def get_tip(self):
-        msg = self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg
+        try:
+            msg = self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg
+        except:
+            self.send_response(404)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            return
+
         if msg is not None:
             self.send_response(200)
             self.send_header('Content-type', 'application/octet-stream')

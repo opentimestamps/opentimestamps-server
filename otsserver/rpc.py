@@ -267,6 +267,8 @@ Latest transactions: </br>
             self.get_timestamp()
         elif self.path == '/tip':
             self.get_tip()
+        elif self.path == '/state':
+            self.get_state()
         elif self.path.startswith('/experimental/backup/'):
             self.get_backup()
         else:

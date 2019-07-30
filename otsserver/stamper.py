@@ -497,6 +497,8 @@ class Stamper:
                 # __do_bitcoin() is fairly self-contained.
                 logging.error("__do_bitcoin() failed: %r" % exp, exc_info=True)
 
+            self.stamper_state = 1
+
             self.exit_event.wait(self.stamper_interval)
 
     def is_pending(self, commitment):
@@ -536,6 +538,8 @@ class Stamper:
         self.txs_waiting_for_confirmation = {}
 
         self.last_timestamp_tx = 0
+
+        self.stamper_state = 0
 
         self.thread = threading.Thread(target=self.__loop)
         self.thread.start()

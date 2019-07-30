@@ -76,6 +76,23 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_header('Cache-Control', 'public, max-age=10')
             self.end_headers()
 
+    def get_state(self):
+        try:
+            stamper_state = self.calendar.stamper.stamper_state
+        except:
+            stamper_state = 0
+        if stamper_state == 1:
+            self.send_response(200)
+            self.send_header('Content-type', 'application/octet-stream')
+            self.send_header('Cache-Control', 'public, max-age=10')
+            self.end_headers()
+            self.wfile.write(str.encode('stamper is ready'))
+        else:
+            self.send_response(503)
+            self.send_header('Content-type', 'application/octet-stream')
+            self.send_header('Cache-Control', 'public, max-age=10')
+            self.end_headers()
+
     def get_backup(self):
         chunk = self.path[len('/experimental/backup/'):]
         try:

@@ -185,7 +185,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             # need to investigate further, but this seems to work.
             str_wallet_balance = str(proxy._call("getbalance"))
 
-            transactions = proxy._call("listtransactions", "", 1000)
+            transactions = proxy._call("listtransactions", "*", 1000)
             # We want only the confirmed txs containing an OP_RETURN, from most to least recent
             transactions = list(filter(lambda x: x["confirmations"] > 0 and x["amount"] == 0, transactions))
             a_week_ago = (datetime.date.today() - datetime.timedelta(days=7)).timetuple()
@@ -237,7 +237,7 @@ Latest transactions: </br>
               'best_block': bitcoin.core.b2lx(proxy.getbestblockhash()),
               'block_height': proxy.getblockcount(),
               'balance': str_wallet_balance,
-              'address': str(proxy.getaccountaddress('')),
+              'address': proxy._call("getaccountaddress",""),
               'transactions': transactions[:5],
               'time_between_transactions': time_between_transactions,
               'fees_in_last_week': fees_in_last_week,

@@ -61,7 +61,8 @@ parser.add_argument("--btc-min-relay-feerate", metavar='FEEPERKB', type=float,
                     help="Minimum relay feerate (default: %(default).6f BTC/KB)")
 parser.add_argument("--btc-min-confirmations", metavar='N', type=int,
                     default=6,
-                    help="Confirmations required before we save a Bitcoin timestamp permanently, must be greater than 1 (default: %(default)d)")
+                    help="Confirmations required before we save a Bitcoin timestamp permanently, must be greater than 1"
+                         " (default: %(default)d)")
 parser.add_argument("--btc-min-tx-interval", metavar='SECONDS', type=int,
                     default=3600,
                     help="Minimum interval between timestamp transactions (default: %(default)d seconds)")

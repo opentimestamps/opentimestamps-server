@@ -224,20 +224,25 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 <p>
 Pending commitments: {{ pending_commitments }}</br>
 Transactions waiting for confirmation: {{ txs_waiting_for_confirmation }}</br>
-Most recent timestamp tx: {{ most_recent_tx }} ({{ prior_versions }} prior versions)</br>
+Most recent unconfirmed timestamp tx: {{ most_recent_tx }} ({{ prior_versions }} prior versions)</br>
 Most recent merkle tree tip: {{ tip }}</br>
 Best-block: {{ best_block }}, height {{ block_height }}</br>
 </br>
 Wallet balance: {{ balance }} BTC</br>
 </p>
+
 <p>
 You can donate to the wallet by sending funds to: {{ address }}</br>
 This address changes after every donation.
 </p>
+
 <p>
 Average time between transactions in the last week: {{ time_between_transactions }} </br>
 Fees used in the last week: {{ fees_in_last_week }} BTC</br>
-Latest transactions: </br>
+</p>
+
+<p>
+Latest mined transactions: </br>
 {{#transactions}}
     {{txid}} </br>
 {{/transactions}}

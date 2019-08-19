@@ -204,6 +204,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 </head>
 <body>
 <p>This is an <a href="https://opentimestamps.org">OpenTimestamps</a> <a href="https://github.com/opentimestamps/opentimestamps-server">Calendar Server</a> (v{{ version }})</p>
+
 <p>
 Pending commitments: {{ pending_commitments }}</br>
 Transactions waiting for confirmation: {{ txs_waiting_for_confirmation }}</br>
@@ -220,20 +221,21 @@ This address changes after every donation.
 </p>
 
 <p>
+You can donate through lightning network with the following invoice:</br>
+{{lightning_invoice}}
+</p>
+<p>
 Average time between transactions in the last week: {{ time_between_transactions }} </br>
 Fees used in the last week: {{ fees_in_last_week }} BTC</br>
 </p>
 
 <p>
-Latest mined transactions: </br>
+Latest mined transactions (confirmations): </br>
 {{#transactions}}
-    {{txid}} </br>
+    {{txid}} ({{confirmations}})</br>
 {{/transactions}}
 </p>
 
-<p>
-{{lightning_invoice}}
-</p>
 </body>
 </html>"""
 
@@ -247,7 +249,7 @@ Latest mined transactions: </br>
               'block_height': proxy.getblockcount(),
               'balance': str_wallet_balance,
               'address': proxy._call("getaccountaddress",""),
-              'transactions': transactions[:5],
+              'transactions': transactions[:10],
               'time_between_transactions': time_between_transactions,
               'fees_in_last_week': fees_in_last_week,
               'lightning_invoice': self.lightning_invoice,
@@ -278,12 +280,12 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
             pass
         rpc_request_handler.aggregator = aggregator
         rpc_request_handler.calendar = calendar
+        rpc_request_handler.lightning_invoice = lightning_invoice
 
         journal = Journal(calendar.path + '/journal')
         rpc_request_handler.backup = Backup(journal, calendar, calendar.path + '/backup_cache')
 
         super().__init__(server_address, rpc_request_handler)
-        self.lightning_invoice = lightning_invoice
 
     def serve_forever(self):
         super().serve_forever()

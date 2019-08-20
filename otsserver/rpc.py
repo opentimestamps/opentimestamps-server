@@ -11,13 +11,13 @@
 
 import binascii
 import http.server
-import os
+import qrcode
 import socketserver
-import threading
 import time
 import pystache
 import datetime 
 from functools import reduce
+from io import BytesIO
 
 import bitcoin.core
 from bitcoin.core import b2lx, b2x
@@ -55,6 +55,18 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
         ctx = StreamSerializationContext(self.wfile)
         timestamp.serialize(ctx)
+
+    def get_qr(self):
+        data = self.path[len('/qr/'):]
+        img = qrcode.make(data)
+        buf = BytesIO()
+        img.save(buf)
+        img_stream = buf.getvalue()
+        self.send_response(200)
+        self.send_header('Content-type', 'image/png')
+        self.send_header('Cache-Control', 'public, max-age=10')
+        self.end_headers()
+        self.wfile.write(img_stream)
 
     def get_tip(self):
         try:
@@ -276,6 +288,8 @@ Latest mined transactions (confirmations): </br>
 
         elif self.path.startswith('/timestamp/'):
             self.get_timestamp()
+        elif self.path.startswith('/qr/'):
+            self.get_qr()
         elif self.path == '/tip':
             self.get_tip()
         elif self.path == '/state':

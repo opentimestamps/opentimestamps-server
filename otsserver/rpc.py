@@ -244,15 +244,22 @@ Best-block: {{ best_block }}, height {{ block_height }}</br>
 Wallet balance: {{ balance }} BTC</br>
 </p>
 
+<hr>
+
 <p>
-You can donate to the wallet by sending funds to: {{ address }}</br>
-This address changes after every donation.
+You can donate to the wallet by sending funds to:</br>
+<img src="/qr/{{ address }}" width="250" />
+<span style="word-break: break-word;">{{ address }}</span>
 </p>
+
+<hr>
 
 <p>
 You can donate through lightning network with the following invoice:</br>
-{{lightning_invoice}}
+<img src="/qr/{{ lightning_invoice }}" width="400"/>
+<span style="word-break: break-word;">{{ lightning_invoice }}</span>
 </p>
+<hr>
 <p>
 Average time between transactions in the last week: {{ time_between_transactions }} </br>
 Fees used in the last week: {{ fees_in_last_week }} BTC</br>

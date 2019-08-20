@@ -248,18 +248,20 @@ Wallet balance: {{ balance }} BTC</br>
 
 <p>
 You can donate to the wallet by sending funds to:</br>
-<img src="/qr/{{ address }}" width="250" />
+<img src="/qr/{{ address }}" width="250" /></br>
 <span style="word-break: break-word;">{{ address }}</span>
 </p>
 
 <hr>
 
+{{ #lightning_invoice }}
 <p>
 You can donate through lightning network with the following invoice:</br>
-<img src="/qr/{{ lightning_invoice }}" width="400"/>
+<img src="/qr/{{ lightning_invoice }}" width="400"/></br>
 <span style="word-break: break-word;">{{ lightning_invoice }}</span>
 </p>
 <hr>
+{{ /lightning_invoice }}
 <p>
 Average time between transactions in the last week: {{ time_between_transactions }} </br>
 Fees used in the last week: {{ fees_in_last_week }} BTC</br>

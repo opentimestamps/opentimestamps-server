@@ -231,7 +231,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 <head>
     <title>OpenTimestamps Calendar Server</title>
 </head>
-<body>
+<body style="word-break: break-word;">
 <p>This is an <a href="https://opentimestamps.org">OpenTimestamps</a> <a href="https://github.com/opentimestamps/opentimestamps-server">Calendar Server</a> (v{{ version }})</p>
 
 <p>
@@ -249,7 +249,7 @@ Wallet balance: {{ balance }} BTC</br>
 <p>
 You can donate to the wallet by sending funds to:</br>
 <img src="/qr/{{ address }}" width="250" /></br>
-<span style="word-break: break-word;">{{ address }}</span>
+<span>{{ address }}</span>
 </p>
 
 <hr>
@@ -258,7 +258,7 @@ You can donate to the wallet by sending funds to:</br>
 <p>
 You can donate through lightning network with the following invoice:</br>
 <img src="/qr/{{ lightning_invoice }}" width="400"/></br>
-<span style="word-break: break-word;">{{ lightning_invoice }}</span>
+<span>{{ lightning_invoice }}</span>
 </p>
 <hr>
 {{ /lightning_invoice }}

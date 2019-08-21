@@ -227,6 +227,15 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             except ZeroDivisionError:
                 time_between_transactions = "N/A"
             transactions.sort(key=lambda x: x["confirmations"])
+
+            lightning_invoice = None
+            if self.lightning_invoice_file is not None:
+                try:
+                    with open(self.lightning_invoice_file, 'r') as file:
+                        lightning_invoice = file.read().strip()
+                except FileNotFoundError:
+                    pass
+
             homepage_template = """<html>
 <head>
     <title>OpenTimestamps Calendar Server</title>
@@ -290,7 +299,7 @@ Latest mined transactions (confirmations): </br>
               'transactions': transactions[:10],
               'time_between_transactions': time_between_transactions,
               'fees_in_last_week': fees_in_last_week,
-              'lightning_invoice': self.lightning_invoice,
+              'lightning_invoice': lightning_invoice,
             }
             welcome_page = renderer.render(homepage_template, stats)
             self.wfile.write(str.encode(welcome_page))
@@ -317,12 +326,12 @@ Latest mined transactions (confirmations): </br>
 
 
 class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    def __init__(self, server_address, aggregator, calendar, lightning_invoice):
+    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file):
         class rpc_request_handler(RPCRequestHandler):
             pass
         rpc_request_handler.aggregator = aggregator
         rpc_request_handler.calendar = calendar
-        rpc_request_handler.lightning_invoice = lightning_invoice
+        rpc_request_handler.lightning_invoice_file = lightning_invoice_file
 
         journal = Journal(calendar.path + '/journal')
         rpc_request_handler.backup = Backup(journal, calendar, calendar.path + '/backup_cache')

@@ -56,9 +56,8 @@ parser.add_argument("--rpc-address", type=str,
                     default='localhost',
                     help="RPC address (default: %(default)s)")
 
-parser.add_argument("--lightning-invoice", type=str,
-                    default='',
-                    help="lightning invoice without amount for donations (default: '')")
+parser.add_argument("--lightning-invoice-file", type=str,
+                    help="file containing a lightning invoice without amount for donations")
 
 parser.add_argument("--max-pending", type=int,
                     default=100000,
@@ -145,7 +144,7 @@ stamper = otsserver.stamper.Stamper(calendar, exit_event,
 
 calendar.stamper = stamper
 
-server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port), aggregator, calendar, args.lightning_invoice)
+server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port), aggregator, calendar, args.lightning_invoice_file)
 try:
     server.serve_forever()
 except KeyboardInterrupt:

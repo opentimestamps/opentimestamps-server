@@ -1,5 +1,11 @@
 # OpenTimestamps Server Release Notes
 
+## v0.4.0
+
+* bech32 address support
+* Better status page wording
+* Various bugfixes
+
 ## v0.3.0
 
 * Experimental calendar backup scheme

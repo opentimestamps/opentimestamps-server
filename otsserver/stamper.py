@@ -420,7 +420,18 @@ class Stamper:
                 logging.error("Maximum txfee reached!")
                 return
 
-            r = proxy.signrawtransaction(unsigned_tx)
+            # before to sign check the btc version
+            # signrawtransaction is deprecated from 0.17.x
+            # and removed from 0.18.x
+            try:
+                r = proxy.call('getnetworkinfo')
+                self.btc_version = int(r['version'])
+            except bitcoin.rpc.JSONRPCError as err:
+                logging.debug("Error calling getnetworkinfo: %r" % err.error)
+            if self.btc_version >= 170000:
+                r = proxy.signrawtransactionwithwallet(unsigned_tx)
+            else:
+                r = proxy.signrawtransaction(unsigned_tx)
             if not r['complete']:
                 logging.error("Failed to sign transaction! r = %r" % r)
                 return
@@ -535,6 +546,7 @@ class Stamper:
         self.txs_waiting_for_confirmation = {}
 
         self.last_timestamp_tx = 0
+        self.btc_version = 0
 
         self.thread = threading.Thread(target=self.__loop)
         self.thread.start()

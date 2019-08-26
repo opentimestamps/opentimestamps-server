@@ -64,7 +64,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         img_stream = buf.getvalue()
         self.send_response(200)
         self.send_header('Content-type', 'image/png')
-        self.send_header('Cache-Control', 'public, max-age=10')
+        self.send_header('Cache-Control', 'public, max-age=31536000')
         self.end_headers()
         self.wfile.write(img_stream)
 

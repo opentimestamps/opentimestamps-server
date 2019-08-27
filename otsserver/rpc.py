@@ -34,6 +34,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     """Largest digest that can be POSTed for timestamping"""
 
     digest_queue = None
+    btc_version = 0
 
     def post_digest(self):
         content_length = int(self.headers['Content-Length'])
@@ -198,6 +199,43 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             except ZeroDivisionError:
                 time_between_transactions = "N/A"
             transactions.sort(key=lambda x: x["confirmations"])
+
+            # check the btc version because getaccountaddress
+            # is deprecated from 0.17.x and removed from 0.18.x
+            try:
+                r = proxy.call('getnetworkinfo')
+                btc_version = int(r['version'])
+            except:
+                # ignore errors and use previous btc_version
+                pass
+            if btc_version < 170000:
+                unused_address = proxy._call("getaccountaddress","")
+            else:
+                # Use label mimic to have same result as getaccountaddress
+                label = 'donations'
+                unused_address = None
+                try:
+                    addr_list = proxy.call('getaddressesbylabel', label)
+                except bitcoin.rpc.JSONRPCError as err:
+                    if err.error['code'] == -11:
+                        # No addresses with label
+                        addr_list = None
+                if addr_list:
+                    # Addresses with label found
+                    for addr in list(addr_list.keys()):
+                        # Check for tx received
+                        r = proxy.call('listreceivedbyaddress', 0, True, False, addr)
+                        if not len(r[0]['txids']):
+                            # Unused address found!
+                            unused_address = addr
+                            break
+                        else:
+                            # Used address found, remove label
+                            proxy.call('setlabel', addr, '')
+                if not unused_address:
+                    # Address with label not found, generate a new one
+                    unused_address = str(proxy.getnewaddress(label))
+
             homepage_template = """<html>
 <head>
     <title>OpenTimestamps Calendar Server</title>
@@ -242,7 +280,7 @@ Latest mined transactions: </br>
               'best_block': bitcoin.core.b2lx(proxy.getbestblockhash()),
               'block_height': proxy.getblockcount(),
               'balance': str_wallet_balance,
-              'address': proxy._call("getaccountaddress",""),
+              'address': unused_address,
               'transactions': transactions[:5],
               'time_between_transactions': time_between_transactions,
               'fees_in_last_week': fees_in_last_week,

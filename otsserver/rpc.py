@@ -279,8 +279,8 @@ Latest mined transactions (confirmations): </br>
               'best_block': bitcoin.core.b2lx(proxy.getbestblockhash()),
               'block_height': proxy.getblockcount(),
               'balance': str_wallet_balance,
-              'address': address,
-              'address_qr': get_qr(address),
+              'address': self.donation_address,
+              'address_qr': get_qr(self.donation_address),
               'transactions': transactions[:10],
               'time_between_transactions': time_between_transactions,
               'fees_in_last_week': fees_in_last_week,
@@ -311,9 +311,9 @@ Latest mined transactions (confirmations): </br>
 
 
 class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file):
+    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file, btc_donation_address):
         class rpc_request_handler(RPCRequestHandler):
-            pass
+            donation_address = btc_donation_address
         rpc_request_handler.aggregator = aggregator
         rpc_request_handler.calendar = calendar
         rpc_request_handler.lightning_invoice_file = lightning_invoice_file

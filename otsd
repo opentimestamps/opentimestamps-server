@@ -21,10 +21,12 @@ import time
 
 import bitcoin
 import bitcoin.core
+from bitcoin.wallet import CBitcoinAddress, CBitcoinAddressError
 
 import otsserver.calendar
 import otsserver.rpc
 import otsserver.stamper
+
 
 parser = argparse.ArgumentParser(description="OpenTimestamps Server")
 
@@ -80,6 +82,9 @@ parser.add_argument("--btc-min-tx-interval", metavar='SECONDS', type=int,
 parser.add_argument("--btc-max-fee", metavar='FEE', type=float,
                     default=0.0001,
                     help="Maximum transaction fee (default: %(default).3f BTC)")
+parser.add_argument("--btc-donation-addr", metavar='DONATIONADDRESS', type=str,
+                    default=None,
+                    help="Donation address (default: None)")
 
 btc_net_group = parser.add_mutually_exclusive_group()
 btc_net_group.add_argument('--btc-testnet', dest='btc_net', action='store_const',
@@ -124,6 +129,12 @@ if args.btc_net == 'testnet':
 elif args.btc_net == 'regtest':
     bitcoin.SelectParams('regtest')
 
+if args.btc_donation_addr is not None:
+    try:
+        CBitcoinAddress(args.btc_donation_addr)
+    except CBitcoinAddressError as e:
+        print("error: argument --btc-donation-addr: invalid address: '%s'" % e.args)
+        sys.exit(1)
 
 exit_event = threading.Event()
 
@@ -141,7 +152,7 @@ stamper = otsserver.stamper.Stamper(calendar, exit_event,
 
 calendar.stamper = stamper
 
-server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port), aggregator, calendar, args.lightning_invoice_file)
+server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port), aggregator, calendar, args.lightning_invoice_file, args.btc_donation_addr)
 try:
     server.serve_forever()
 except KeyboardInterrupt:

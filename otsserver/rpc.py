@@ -15,7 +15,8 @@ import qrcode
 import socketserver
 import time
 import pystache
-import datetime 
+import datetime
+import base64
 from functools import reduce
 from io import BytesIO
 
@@ -28,6 +29,14 @@ from opentimestamps.core.serialize import StreamSerializationContext
 
 from otsserver.calendar import Journal
 renderer = pystache.Renderer()
+
+
+def get_qr(data):
+    img = qrcode.make(data)
+    buf = BytesIO()
+    img.save(buf)
+    return base64.b64encode(buf.getvalue())
+
 
 class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     MAX_DIGEST_LENGTH = 64
@@ -55,18 +64,6 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
         ctx = StreamSerializationContext(self.wfile)
         timestamp.serialize(ctx)
-
-    def get_qr(self):
-        data = self.path[len('/qr/'):]
-        img = qrcode.make(data)
-        buf = BytesIO()
-        img.save(buf)
-        img_stream = buf.getvalue()
-        self.send_response(200)
-        self.send_header('Content-type', 'image/png')
-        self.send_header('Cache-Control', 'public, max-age=31536000')
-        self.end_headers()
-        self.wfile.write(img_stream)
 
     def get_tip(self):
         try:
@@ -204,7 +201,8 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_header('Content-type', 'text/html')
 
             # Humans are likely to be refreshing this, so keep it up-to-date
-            self.send_header('Cache-Control', 'public, max-age=1')
+            # Changed to 5 seconds, otherwise cache was never hit
+            self.send_header('Cache-Control', 'public, max-age=5')
 
             self.end_headers()
 
@@ -229,13 +227,16 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             transactions.sort(key=lambda x: x["confirmations"])
 
             lightning_invoice = None
+            lightning_invoice_qr = None
             if self.lightning_invoice_file is not None:
                 try:
                     with open(self.lightning_invoice_file, 'r') as file:
                         lightning_invoice = file.read().strip()
+                        lightning_invoice_qr = get_qr(lightning_invoice)
                 except FileNotFoundError:
                     pass
 
+            address = proxy._call("getaccountaddress", "")
             homepage_template = """<html>
 <head>
     <title>OpenTimestamps Calendar Server</title>
@@ -257,7 +258,7 @@ Wallet balance: {{ balance }} BTC</br>
 
 <p>
 You can donate to the wallet by sending funds to:</br>
-<img src="/qr/{{ address }}" width="250" /></br>
+<img src="data:image/png;base64, {{ address_qr }}" width="250" /></br>
 <span>{{ address }}</span>
 </p>
 
@@ -266,7 +267,7 @@ You can donate to the wallet by sending funds to:</br>
 {{ #lightning_invoice }}
 <p>
 You can donate through lightning network with the following invoice:</br>
-<img src="/qr/{{ lightning_invoice }}" width="400"/></br>
+<img src="data:image/png;base64, {{ lightning_invoice_qr }}" width="400"/></br>
 <span>{{ lightning_invoice }}</span>
 </p>
 <hr>
@@ -295,11 +296,14 @@ Latest mined transactions (confirmations): </br>
               'best_block': bitcoin.core.b2lx(proxy.getbestblockhash()),
               'block_height': proxy.getblockcount(),
               'balance': str_wallet_balance,
-              'address': proxy._call("getaccountaddress",""),
+              'address': address,
+              'address_qr': get_qr(address),
               'transactions': transactions[:10],
               'time_between_transactions': time_between_transactions,
               'fees_in_last_week': fees_in_last_week,
               'lightning_invoice': lightning_invoice,
+              'lightning_invoice_qr': lightning_invoice_qr,
+
             }
             welcome_page = renderer.render(homepage_template, stats)
             self.wfile.write(str.encode(welcome_page))
@@ -340,3 +344,4 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
     def serve_forever(self):
         super().serve_forever()
+

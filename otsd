@@ -44,6 +44,10 @@ parser.add_argument("--debug-file-max-size", type=int,
                     dest='debug_file_max_size',
                     default=10000000,
                     help="Max size of the debug log (default: %(default)d bytes) ")
+parser.add_argument("--debug-file-backup-count", type=int,
+                    dest='debug_file_backup_count',
+                    default=10,
+                    help="Number of debug log file backups (default: %(default)d bytes) ")
 
 parser.add_argument("--rpc-port", type=int,
                     default=14788,
@@ -95,7 +99,7 @@ if not os.path.exists(directory):
     os.makedirs(directory)
 
 debugfile = os.path.expanduser(args.debug_file)
-handler = logging.handlers.RotatingFileHandler(filename=debugfile, maxBytes=args.debug_file_max_size)
+handler = logging.handlers.RotatingFileHandler(filename=debugfile, maxBytes=args.debug_file_max_size, backupCount=args.debug_file_backup_count)
 fmt = logging.Formatter("%(asctime)-15s %(message)s")
 handler.setFormatter(fmt)
 logger = logging.getLogger('')

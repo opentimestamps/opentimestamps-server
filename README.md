@@ -70,10 +70,9 @@ with the `generate` RPC command. For example, to mine ten blocks instantly:
 bitcoin-cli generate 10
 ```
 
-By default `otsd` binds to localhost, and isn't really designed to be exposed
-directly to the public. For production usage we recommend using a reverse
-proxy; an example configuration for nginx is provided under the
-`contrib/nginx` directory of this repo.
+By default `otsd` binds to localhost; `otsd` is not designed to be exposed
+directly to the public and requires a reverse proxy for production usage. An
+example configuration for nginx is provided under `contrib/nginx`.
 
 ## Bitcoin core
 

@@ -213,7 +213,6 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             else:
                 # Use label mimic to have same result as getaccountaddress
                 label = 'opentimestamps-server donations'
-                donation_address = None
                 try:
                     addr_list = proxy.call('getaddressesbylabel', label)
                 except bitcoin.rpc.JSONRPCError as err:
@@ -222,7 +221,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
                         addr_list = None
                 if addr_list:
                     donation_address = list(addr_list.keys())[0]
-                if not donation_address:
+                else:
                     # Address with label not found, generate a new one
                     donation_address = str(proxy.getnewaddress(label))
 

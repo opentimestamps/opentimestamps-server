@@ -512,8 +512,8 @@ class Stamper:
         else:
             journal = Journal(self.calendar.path + '/journal')
             idx = self.journal_cursor
-            while idx > 0:
-                # exclude idx==0 meaning stamper loop never executed once
+            while idx is not None:
+                # cursor is None when stamper loop never executed once
                 try:
                     recent_commitment = journal[idx]
                 except KeyError:
@@ -549,7 +549,7 @@ class Stamper:
         self.txs_waiting_for_confirmation = {}
 
         self.last_timestamp_tx = 0
-        self.journal_cursor = 0
+        self.journal_cursor = None
 
         self.thread = threading.Thread(target=self.__loop)
         self.thread.start()

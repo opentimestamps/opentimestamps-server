@@ -42,7 +42,7 @@ def make_btc_block_merkle_tree(blk_txids):
             digests.append(digests[-1].msg)
 
         next_level = []
-        for i in range(0,len(digests), 2):
+        for i in range(0, len(digests), 2):
             next_level.append(cat_sha256d(digests[i], digests[i + 1]))
 
         digests = next_level
@@ -181,7 +181,7 @@ def find_unspent(proxy):
         return sorted(filter(lambda x: x['amount'] > DUST and x['spendable'], unspent),
                       key=lambda x: x['amount'])
 
-    unspent = sort_filter_unspent(listunspent(proxy,1))
+    unspent = sort_filter_unspent(listunspent(proxy, 1))
 
     if len(unspent):
         return unspent
@@ -391,7 +391,7 @@ class Stamper:
                 return
 
             change_addr = proxy._call("getnewaddress", "", "bech32")
-            change_addr_info = proxy._call("getaddressinfo",change_addr)
+            change_addr_info = proxy._call("getaddressinfo", change_addr)
             change_addr_script = x(change_addr_info['scriptPubKey'])
 
             prev_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'],
@@ -514,8 +514,7 @@ class Stamper:
                         return "Timestamped by transaction %s; waiting for %d confirmations"\
                                % (b2lx(ttx.tx.GetTxid()), self.min_confirmations-1)
 
-            else:
-                return False
+        return False
 
     def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee, max_pending):
         self.calendar = calendar

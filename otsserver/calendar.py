@@ -198,10 +198,10 @@ class LevelDbCalendar:
             if n % 10000 == 0:
                 now = time.time()
                 logging.debug("Added %d timestamps to LevelDB; %f stamps/second" %
-                                (n, 10000.0 / (now - last)))
+                              (n, 10000.0 / (now - last)))
                 last = now
 
-        self.db.Write(batch, sync = True)
+        self.db.Write(batch, sync=True)
         logging.debug("Done LevelDbCalendar.add_timestamps(), added %d timestamps total" % n)
 
 class Calendar:

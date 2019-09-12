@@ -484,6 +484,17 @@ class Stamper:
 
             try:
                 self.__do_bitcoin()
+            except bitcoin.rpc.InWarmupError as warmuperr:
+                logging.info("Bitcoincore is warming up: %r" % warmuperr)
+                time.sleep(5)
+            except ValueError as err:
+                # If not caused by misconfiguration this error in bitcoinlib
+                # usually occurs when bitcoincore is not started
+                if str(err).startswith('Cookie file unusable'):
+                    logging.error("Proxy Authentication Error: Is bitcoincore running?: %r" % err)
+                    time.sleep(5)
+                else:
+                    logging.error("__do_bitcoin() failed: %r" % exp, exc_info=True)
             except Exception as exp:
                 # !@#$ Python.
                 #

@@ -179,7 +179,10 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
             self.end_headers()
 
-            proxy = bitcoin.rpc.Proxy()
+            try:
+                proxy = bitcoin.rpc.Proxy()
+            except Exception as err:
+                return
 
             # FIXME: Unfortunately getbalance() doesn't return the right thing;
             # need to investigate further, but this seems to work.

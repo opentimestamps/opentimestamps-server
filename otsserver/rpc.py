@@ -215,7 +215,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
                 try:
                     with open(self.lightning_invoice_file, 'r') as file:
                         lightning_invoice = file.read().strip()
-                        lightning_invoice_qr = get_qr(lightning_invoice)
+                        lightning_invoice_qr = get_qr(lightning_invoice.upper())
                 except FileNotFoundError:
                     pass
 

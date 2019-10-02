@@ -17,6 +17,7 @@ import time
 import pystache
 import datetime
 import base64
+import simplejson
 from functools import reduce
 from io import BytesIO
 
@@ -291,8 +292,11 @@ Latest mined transactions (confirmations): </br>
               'lightning_invoice_qr': lightning_invoice_qr,
 
             }
-            welcome_page = renderer.render(homepage_template, stats)
-            self.wfile.write(str.encode(welcome_page))
+            if self.headers['Accept'] == "application/json":
+                self.wfile.write(str.encode(simplejson.dumps(stats, use_decimal=True, indent=4 * ' ')))
+            else:
+                welcome_page = renderer.render(homepage_template, stats)
+                self.wfile.write(str.encode(welcome_page))
 
         elif self.path.startswith('/timestamp/'):
             self.get_timestamp()

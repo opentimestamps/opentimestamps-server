@@ -349,9 +349,9 @@ class Stamper:
 
                 mined_tx.tip_timestamp.merge(block_timestamp)
 
+                logging.debug("Removing %d commitments from pending" % (unconfirmed_tx.n))
                 for commitment in tuple(self.pending_commitments)[0:unconfirmed_tx.n]:
                     self.pending_commitments.remove(commitment)
-                    logging.debug("Removed commitment %s from pending" % b2x(commitment))
 
                 assert self.min_confirmations > 1
                 logging.info("Success! %d commitments timestamped, now waiting for %d more confirmations" %
@@ -473,7 +473,7 @@ class Stamper:
                 # Is this commitment already stamped?
                 if commitment not in self.calendar:
                     self.pending_commitments.add(commitment)
-                    if idx % 100 == 0:
+                    if idx % 1000 == 0:
                         logging.debug('Added %s (idx %d) to pending commitments; %d total'
                                       % (b2x(commitment), idx, len(self.pending_commitments)))
                 else:

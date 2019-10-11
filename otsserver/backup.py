@@ -65,7 +65,7 @@ class Backup:
                 # according to https://docs.python.org/3/library/exceptions.html#IndexError IndexError is the more
                 # appropriate exception for this case
                 raise IndexError
-            if i % 100 == 0:
+            if i % 1000 == 0:
                 logging.debug("Got commitment " + str(i) + ":" + b2x(self.journal[i]))
 
         logging.debug("map len " + str(len(backup_map)) + " start:" + str(start) + " end:" + str(end))

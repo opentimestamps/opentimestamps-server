@@ -200,6 +200,7 @@ class LevelDbCalendar:
                 logging.debug("Added %d timestamps to LevelDB; %f stamps/second" %
                                 (n, 10000.0 / (now - last)))
                 last = now
+        del batch_cache
 
         self.db.Write(batch, sync = True)
         logging.debug("Done LevelDbCalendar.add_timestamps(), added %d timestamps total" % n)

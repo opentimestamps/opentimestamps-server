@@ -8,6 +8,7 @@ Group=ots
 ExecStartPre=/bin/bash /usr/local/bin/bitcoind-ready.sh
 ExecStart=/home/ots/opentimestamps-server/otsd -v
 Restart=on-failure
+LimitNOFILE=4096
 
 KillSignal=SIGINT
 

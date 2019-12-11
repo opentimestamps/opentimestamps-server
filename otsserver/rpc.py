@@ -11,13 +11,15 @@
 
 import binascii
 import http.server
-import os
+import qrcode
 import socketserver
-import threading
 import time
 import pystache
-import datetime 
+import datetime
+import base64
+import simplejson
 from functools import reduce
+from io import BytesIO
 
 import bitcoin.core
 from bitcoin.core import b2lx, b2x
@@ -28,6 +30,14 @@ from opentimestamps.core.serialize import StreamSerializationContext
 
 from otsserver.calendar import Journal
 renderer = pystache.Renderer()
+
+
+def get_qr(data):
+    img = qrcode.make(data)
+    buf = BytesIO()
+    img.save(buf)
+    return base64.b64encode(buf.getvalue())
+
 
 class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     MAX_DIGEST_LENGTH = 64
@@ -192,11 +202,15 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_header('Content-type', 'text/html')
 
             # Humans are likely to be refreshing this, so keep it up-to-date
-            self.send_header('Cache-Control', 'public, max-age=1')
+            # Changed to 5 seconds, otherwise cache was never hit
+            self.send_header('Cache-Control', 'public, max-age=5')
 
             self.end_headers()
 
-            proxy = bitcoin.rpc.Proxy()
+            try:
+                proxy = bitcoin.rpc.Proxy()
+            except Exception as err:
+                return
 
             # FIXME: Unfortunately getbalance() doesn't return the right thing;
             # need to investigate further, but this seems to work.
@@ -215,33 +229,65 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             except ZeroDivisionError:
                 time_between_transactions = "N/A"
             transactions.sort(key=lambda x: x["confirmations"])
+
+            lightning_invoice = None
+            lightning_invoice_qr = None
+            if self.lightning_invoice_file is not None:
+                try:
+                    with open(self.lightning_invoice_file, 'r') as file:
+                        lightning_invoice = file.read().strip()
+                        lightning_invoice_qr = get_qr(lightning_invoice.upper())
+                except FileNotFoundError:
+                    pass
+
+            address = proxy._call("getaccountaddress", "")
             homepage_template = """<html>
 <head>
     <title>OpenTimestamps Calendar Server</title>
 </head>
-<body>
+<body style="word-break: break-word;">
 <p>This is an <a href="https://opentimestamps.org">OpenTimestamps</a> <a href="https://github.com/opentimestamps/opentimestamps-server">Calendar Server</a> (v{{ version }})</p>
+
 <p>
 Pending commitments: {{ pending_commitments }}</br>
 Transactions waiting for confirmation: {{ txs_waiting_for_confirmation }}</br>
-Most recent timestamp tx: {{ most_recent_tx }} ({{ prior_versions }} prior versions)</br>
+Most recent unconfirmed timestamp tx: {{ most_recent_tx }} ({{ prior_versions }} prior versions)</br>
 Most recent merkle tree tip: {{ tip }}</br>
 Best-block: {{ best_block }}, height {{ block_height }}</br>
 </br>
 Wallet balance: {{ balance }} BTC</br>
 </p>
+
+<hr>
+
 <p>
-You can donate to the wallet by sending funds to: {{ address }}</br>
-This address changes after every donation.
+You can donate to the wallet by sending funds to:</br>
+<img src="data:image/png;base64, {{ address_qr }}" width="250" /></br>
+<span>{{ address }}</span>
 </p>
+
+<hr>
+
+{{ #lightning_invoice }}
+<p>
+You can donate through lightning network with the following invoice:</br>
+<img src="data:image/png;base64, {{ lightning_invoice_qr }}" width="400"/></br>
+<span>{{ lightning_invoice }}</span>
+</p>
+<hr>
+{{ /lightning_invoice }}
 <p>
 Average time between transactions in the last week: {{ time_between_transactions }} </br>
 Fees used in the last week: {{ fees_in_last_week }} BTC</br>
-Latest transactions: </br>
+</p>
+
+<p>
+Latest mined transactions (confirmations): </br>
 {{#transactions}}
-    {{txid}} </br>
+    {{txid}} ({{confirmations}})</br>
 {{/transactions}}
 </p>
+
 </body>
 </html>"""
 
@@ -254,17 +300,25 @@ Latest transactions: </br>
               'best_block': bitcoin.core.b2lx(proxy.getbestblockhash()),
               'block_height': proxy.getblockcount(),
               'balance': str_wallet_balance,
-              'address': proxy._call("getaccountaddress",""),
-              'transactions': transactions[:5],
+              'address': address,
+              'address_qr': get_qr(address),
+              'transactions': transactions[:10],
               'time_between_transactions': time_between_transactions,
               'fees_in_last_week': fees_in_last_week,
-            }
-            welcome_page = renderer.render(homepage_template, stats)
-            self.wfile.write(str.encode(welcome_page))
+              'lightning_invoice': lightning_invoice,
+              'lightning_invoice_qr': lightning_invoice_qr,
 
+            }
+            if self.headers['Accept'] == "application/json":
+                self.wfile.write(str.encode(simplejson.dumps(stats, use_decimal=True, indent=4 * ' ')))
+            else:
+                welcome_page = renderer.render(homepage_template, stats)
+                self.wfile.write(str.encode(welcome_page))
 
         elif self.path.startswith('/timestamp/'):
             self.get_timestamp()
+        elif self.path.startswith('/qr/'):
+            self.get_qr()
         elif self.path == '/tip':
             self.get_tip()
         elif self.path == '/state':
@@ -283,11 +337,12 @@ Latest transactions: </br>
 
 
 class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    def __init__(self, server_address, aggregator, calendar):
+    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file):
         class rpc_request_handler(RPCRequestHandler):
             pass
         rpc_request_handler.aggregator = aggregator
         rpc_request_handler.calendar = calendar
+        rpc_request_handler.lightning_invoice_file = lightning_invoice_file
 
         journal = Journal(calendar.path + '/journal')
         rpc_request_handler.backup = Backup(journal, calendar, calendar.path + '/backup_cache')
@@ -296,3 +351,4 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
     def serve_forever(self):
         super().serve_forever()
+

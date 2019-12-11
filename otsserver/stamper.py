@@ -177,7 +177,8 @@ def listunspent(proxy, minconf=0, maxconf=999999):
 
 def find_unspent(proxy):
     def sort_filter_unspent(unspent):
-        DUST = 0.001 * COIN
+        # https://github.com/bitcoin/bitcoin/blob/master/src/policy/policy.cpp
+        DUST = 0.00000546 * COIN
         return sorted(filter(lambda x: x['amount'] > DUST and x['spendable'], unspent),
                       key=lambda x: x['amount'])
 
@@ -349,9 +350,9 @@ class Stamper:
 
                 mined_tx.tip_timestamp.merge(block_timestamp)
 
+                logging.debug("Removing %d commitments from pending" % (unconfirmed_tx.n))
                 for commitment in tuple(self.pending_commitments)[0:unconfirmed_tx.n]:
                     self.pending_commitments.remove(commitment)
-                    logging.debug("Removed commitment %s from pending" % b2x(commitment))
 
                 assert self.min_confirmations > 1
                 logging.info("Success! %d commitments timestamped, now waiting for %d more confirmations" %
@@ -473,7 +474,7 @@ class Stamper:
                 # Is this commitment already stamped?
                 if commitment not in self.calendar:
                     self.pending_commitments.add(commitment)
-                    if idx % 100 == 0:
+                    if idx % 1000 == 0:
                         logging.debug('Added %s (idx %d) to pending commitments; %d total'
                                       % (b2x(commitment), idx, len(self.pending_commitments)))
                 else:
@@ -484,6 +485,17 @@ class Stamper:
 
             try:
                 self.__do_bitcoin()
+            except bitcoin.rpc.InWarmupError as warmuperr:
+                logging.info("Bitcoincore is warming up: %r" % warmuperr)
+                time.sleep(5)
+            except ValueError as err:
+                # If not caused by misconfiguration this error in bitcoinlib
+                # usually occurs when bitcoincore is not started
+                if str(err).startswith('Cookie file unusable'):
+                    logging.error("Proxy Authentication Error: Is bitcoincore running?: %r" % err)
+                    time.sleep(5)
+                else:
+                    logging.error("__do_bitcoin() failed: %r" % exp, exc_info=True)
             except Exception as exp:
                 # !@#$ Python.
                 #

@@ -17,6 +17,7 @@ import os
 import queue
 import sys
 import threading
+import time
 
 import bitcoin
 import bitcoin.core
@@ -44,6 +45,13 @@ parser.add_argument("--debug-file-max-size", type=int,
                     dest='debug_file_max_size',
                     default=10000000,
                     help="Max size of the debug log (default: %(default)d bytes) ")
+parser.add_argument("--debug-file-backup-count", type=int,
+                    dest='debug_file_backup_count',
+                    default=10,
+                    help="Number of debug log file backups (default: %(default)d bytes) ")
+parser.add_argument("--debug-file-gmtime", action="store_true",
+                    dest='debug_file_gmtime',
+                    help="Use GMT/UTC time instead of local time in debug log file")
 
 parser.add_argument("--rpc-port", type=int,
                     default=14788,
@@ -51,6 +59,9 @@ parser.add_argument("--rpc-port", type=int,
 parser.add_argument("--rpc-address", type=str,
                     default='localhost',
                     help="RPC address (default: %(default)s)")
+
+parser.add_argument("--lightning-invoice-file", type=str,
+                    help="file containing a lightning invoice without amount for donations")
 
 parser.add_argument("--max-pending", type=int,
                     default=100000,
@@ -86,13 +97,16 @@ if not os.path.exists(directory):
     os.makedirs(directory)
 
 debugfile = os.path.expanduser(args.debug_file)
-handler = logging.handlers.RotatingFileHandler(filename=debugfile, maxBytes=args.debug_file_max_size)
+handler = logging.handlers.RotatingFileHandler(filename=debugfile, maxBytes=args.debug_file_max_size, backupCount=args.debug_file_backup_count)
 fmt = logging.Formatter("%(asctime)-15s %(message)s")
 handler.setFormatter(fmt)
 logger = logging.getLogger('')
 logger.addHandler(handler)
 ch = logging.StreamHandler(sys.stdout)
 logger.addHandler(ch)
+
+if args.debug_file_gmtime:
+    logging.Formatter.converter = time.gmtime
 
 args.verbosity = args.verbose - args.quiet
 
@@ -127,7 +141,7 @@ stamper = otsserver.stamper.Stamper(calendar, exit_event,
 
 calendar.stamper = stamper
 
-server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port), aggregator, calendar)
+server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port), aggregator, calendar, args.lightning_invoice_file)
 try:
     server.serve_forever()
 except KeyboardInterrupt:

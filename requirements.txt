@@ -3,7 +3,7 @@ GitPython>=2.0.8
 leveldb>=0.20
 pysha3>=1.0.2
 pystache>=0.5
-requests==2.2.0
+requests>=2.21
 qrcode==6.1
 image==1.5.27
 simplejson==3.16.0

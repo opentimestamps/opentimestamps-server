@@ -94,6 +94,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         except:
             self.send_response(404)
             self.send_header('Content-type', 'text/plain')
+            self.send_header('Cache-Control', 'public, max-age=60')
             self.end_headers()
             return
 

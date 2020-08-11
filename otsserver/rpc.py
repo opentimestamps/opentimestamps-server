@@ -158,7 +158,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
         # Since only Bitcoin attestations are currently made, once a commitment
         # is timestamped by Bitcoin this response will never change.
-        self.send_header('Cache-Control', 'public, max-age=3600')
+        self.send_header('Cache-Control', 'public, max-age=31536000')
 
         self.send_header('Content-type', 'application/octet-stream')
         self.end_headers()

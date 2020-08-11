@@ -266,9 +266,12 @@ Fees used in the last week: {{ fees_in_last_week }} BTC</br>
 
 <p>
 Latest mined transactions (confirmations): </br>
+</br>
+<tt>
 {{#transactions}}
     {{txid}} ({{confirmations}})</br>
 {{/transactions}}
+</tt>
 </p>
 
 </body>

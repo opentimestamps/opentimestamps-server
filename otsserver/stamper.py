@@ -483,6 +483,8 @@ class Stamper:
 
                 idx += 1
 
+            self.journal_cursor = idx
+
             try:
                 self.__do_bitcoin()
             except bitcoin.rpc.InWarmupError as warmuperr:
@@ -520,6 +522,18 @@ class Stamper:
             return "Pending confirmation in Bitcoin blockchain"
 
         else:
+            journal = Journal(self.calendar.path + '/journal')
+            idx = self.journal_cursor
+            while idx is not None:
+                # cursor is None when stamper loop never executed once
+                try:
+                    recent_commitment = journal[idx]
+                except KeyError:
+                    break
+                if recent_commitment == commitment:
+                    return "Pending confirmation in Bitcoin blockchain"
+                idx += 1
+
             for height, ttx in self.txs_waiting_for_confirmation.items():
                for commitment_timestamp in ttx.commitment_timestamps:
                     if commitment == commitment_timestamp.msg:
@@ -547,6 +561,7 @@ class Stamper:
         self.txs_waiting_for_confirmation = {}
 
         self.last_timestamp_tx = 0
+        self.journal_cursor = None
 
         self.thread = threading.Thread(target=self.__loop)
         self.thread.start()

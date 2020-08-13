@@ -298,7 +298,7 @@ class AskBackup(threading.Thread):
                             # the following raise an exception and block computation if the attestation does not verify
                             attested_time = attestation.verify_against_blockheader(key, block_header)
                             logging.debug("Verifying " + b2x(key) + " result " + str(attested_time))
-                            break;
+                            break
                         except Exception as err:
                             logging.info("%s - error contacting bitcoin node, sleeping..." % (err))
                             time.sleep(SLEEP_SECS)
@@ -333,8 +333,3 @@ class AskBackup(threading.Thread):
 
             elapsed_time = time.time() - start_time
             logging.info("Took %ds for %s" % (elapsed_time, str(backup_url)))
-
-
-
-
-

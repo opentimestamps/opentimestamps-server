@@ -1,5 +1,13 @@
 # OpenTimestamps Server Release Notes
 
+## v0.5.0
+
+* Increased max tx fee to account for current conditions
+* Added QR code for donation address
+* Added Lightning donations
+* Added JSON format stats
+* Improved stats display
+
 ## v0.4.0
 
 * bech32 address support

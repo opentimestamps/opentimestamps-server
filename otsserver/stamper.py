@@ -365,13 +365,14 @@ class Stamper:
                 # Erase all unconfirmed txs, as they all conflict with each other
                 self.unconfirmed_txs.clear()
 
-                # And finally, we can reset the last time a timestamp
-                # transaction was mined to right now.
-                self.last_timestamp_tx = time.time()
+                # Finally, schedule a new timestamp transaction.
+                #
+                # To help desync calendars, this time is randomized.
+                self.next_timestamp_tx = time.time() + (self.min_tx_interval * random.uniform(1, 2))
 
                 break
 
-        time_to_next_tx = int(self.last_timestamp_tx + self.min_tx_interval * random.uniform(1, 2) - time.time())
+        time_to_next_tx = self.next_timestamp_tx - time.time()
         if time_to_next_tx > 0:
             # Minimum interval between transactions hasn't been reached, so do nothing
             logging.debug("Waiting %ds before next tx" % time_to_next_tx)
@@ -559,7 +560,7 @@ class Stamper:
         self.pending_commitments = OrderedSet()
         self.txs_waiting_for_confirmation = {}
 
-        self.last_timestamp_tx = 0
+        self.next_timestamp_tx = time.time()
         self.journal_cursor = None
 
         self.thread = threading.Thread(target=self.__loop)

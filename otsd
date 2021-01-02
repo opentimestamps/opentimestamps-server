@@ -75,7 +75,7 @@ parser.add_argument("--btc-min-confirmations", metavar='N', type=int,
                     help="Confirmations required before we save a Bitcoin timestamp permanently, must be greater than 1"
                          " (default: %(default)d)")
 parser.add_argument("--btc-min-tx-interval", metavar='SECONDS', type=int,
-                    default=3600,
+                    default=60*60*6,
                     help="Minimum interval between timestamp transactions (default: %(default)d seconds)")
 parser.add_argument("--btc-max-fee", metavar='FEE', type=float,
                     default=0.001,

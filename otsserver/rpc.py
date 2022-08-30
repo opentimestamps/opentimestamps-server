@@ -46,7 +46,17 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     digest_queue = None
 
     def post_digest(self):
-        content_length = int(self.headers['Content-Length'])
+        content_length = self.headers['Content-Length']
+
+        # Might be missing or otherwise invalid
+        try:
+            content_length = int(content_length)
+        except TypeError:
+            self.send_response(400)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b'invalid Content-Length')
+            return
 
         if content_length > self.MAX_DIGEST_LENGTH:
             self.send_response(400)

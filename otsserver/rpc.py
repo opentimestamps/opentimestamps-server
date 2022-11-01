@@ -245,9 +245,9 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 <p>
 Pending commitments: {{ pending_commitments }}</br>
 Transactions waiting for confirmation: {{ txs_waiting_for_confirmation }}</br>
-Most recent unconfirmed timestamp tx: <a href="https://blockstream.info/tx/{{ most_recent_tx }}">{{ most_recent_tx }}</a> ({{ prior_versions }} prior versions)</br>
+Most recent unconfirmed timestamp tx: <a href="https://mempool.space/tx/{{ most_recent_tx }}">{{ most_recent_tx }}</a> ({{ prior_versions }} prior versions)</br>
 Most recent merkle tree tip: {{ tip }}</br>
-Best-block: <a href="https://blockstream.info/block/{{ best_block }}">{{ best_block }}</a>, height {{ block_height }}</br>
+Best-block: <a href="https://mempool.space/block/{{ best_block }}">{{ best_block }}</a>, height {{ block_height }}</br>
 </br>
 Wallet balance: {{ balance }} BTC</br>
 </p>
@@ -280,7 +280,7 @@ Latest mined transactions (confirmations): </br>
 </br>
 <tt>
 {{#transactions}}
-    <a href="https://blockstream.info/tx/{{txid}}">{{txid}}</a> ({{confirmations}})</br>
+    <a href="https://mempool.space/tx/{{txid}}">{{txid}}</a> ({{confirmations}})</br>
 {{/transactions}}
 </tt>
 </p>

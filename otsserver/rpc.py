@@ -280,7 +280,7 @@ Latest mined transactions (confirmations): </br>
 </br>
 <tt>
 {{#transactions}}
-    <a href="https://mempool.space/tx/{{txid}}">{{txid}}</a> ({{confirmations}})</br>
+    <a href="https://mempool.space/tx/{{txid}}">{{txid}}</a> {{fee}} ({{confirmations}})</br>
 {{/transactions}}
 </tt>
 </p>

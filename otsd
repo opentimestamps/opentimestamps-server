@@ -21,6 +21,7 @@ import time
 
 import bitcoin
 import bitcoin.core
+from bitcoin.wallet import CBitcoinAddress
 
 import otsserver.calendar
 import otsserver.rpc
@@ -129,6 +130,10 @@ exit_event = threading.Event()
 
 calendar_path = os.path.expanduser(args.calendar_path)
 
+with open(calendar_path + '/donation_addr', "r") as fd:
+    donation_address = fd.read().rstrip()
+    donation_address = CBitcoinAddress(donation_address)
+
 calendar = otsserver.calendar.Calendar(calendar_path)
 aggregator = otsserver.calendar.Aggregator(calendar, exit_event)
 
@@ -141,7 +146,7 @@ stamper = otsserver.stamper.Stamper(calendar, exit_event,
 
 calendar.stamper = stamper
 
-server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port), aggregator, calendar, args.lightning_invoice_file)
+server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port), aggregator, calendar, args.lightning_invoice_file, donation_address)
 try:
     server.serve_forever()
 except KeyboardInterrupt:

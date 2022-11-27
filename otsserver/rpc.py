@@ -234,7 +234,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
                 except FileNotFoundError:
                     pass
 
-            address = proxy._call("getaccountaddress", "")
+            address = str(self.donation_addr)
             homepage_template = """<html>
 <head>
     <title>OpenTimestamps Calendar Server</title>
@@ -332,12 +332,14 @@ Latest mined transactions (confirmations): </br>
 
 
 class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file):
+    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file, donation_addr):
+
         class rpc_request_handler(RPCRequestHandler):
             pass
         rpc_request_handler.aggregator = aggregator
         rpc_request_handler.calendar = calendar
         rpc_request_handler.lightning_invoice_file = lightning_invoice_file
+        rpc_request_handler.donation_addr = donation_addr
 
         journal = Journal(calendar.path + '/journal')
         rpc_request_handler.backup = Backup(journal, calendar, calendar.path + '/backup_cache')

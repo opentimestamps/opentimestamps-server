@@ -11,10 +11,10 @@ mode.
 
 ## Installation
 
-You'll need a local Bitcoin node version 0.17.1 with a wallet with some funds in it; a pruned
-node is fine. While `otsd` is running the wallet should not be used for other
-purposes, as currently the Bitcoin timestamping functionality assumes that it
-has exclusive use of the wallet.
+You'll need a local Bitcoin node (version 24.0 is known to work) with a wallet
+with some funds in it; a pruned node is fine. While `otsd` is running the
+wallet should not be used for other purposes, as currently the Bitcoin
+timestamping functionality assumes that it has exclusive use of the wallet.
 
 Install the requirements:
 
@@ -26,6 +26,7 @@ Create the calendar:
 ```
 mkdir -p ~/.otsd/calendar/
 echo "http://127.0.0.1:14788" > ~/.otsd/calendar/uri
+echo "bitcoin donation address" > ~/.otsd/calendar/donation_addr
 dd if=/dev/random of=~/.otsd/calendar/hmac-key bs=32 count=1
 ```
 
@@ -33,6 +34,10 @@ The URI determines what is put into the URI field of pending attestations
 returned by this calendar server. For a server used for testing, the above is
 fine; for production usage the URI should be set to a stable URL that
 OpenTimestamps clients will be able to access indefinitely.
+
+The donation address needs to be a valid Bitcoin address for the type of
+network (mainnet, testnet, regtest) you're running otsd on. It's displayed on
+the calendar info page.
 
 The HMAC key should be kept secret; it's meant to allow for last-ditch calendar
 recovery from untrusted sources, although only part of the functionality is
@@ -67,22 +72,12 @@ Tip: with regtest you can mine blocks on demand to make your timestamp confirm
 with the `generate` RPC command. For example, to mine ten blocks instantly:
 
 ```
-bitcoin-cli generate 10
+bitcoin-cli -generate 10
 ```
 
 By default `otsd` binds to localhost; `otsd` is not designed to be exposed
 directly to the public and requires a reverse proxy for production usage. An
 example configuration for nginx is provided under `contrib/nginx`.
-
-## Bitcoin core
-
-Bitcoin node must be version 0.17.1 and the following options are needed:
-
-```
-deprecatedrpc=signrawtransaction
-deprecatedrpc=accounts
-addresstype=bech32
-```
 
 ## Unit tests
 

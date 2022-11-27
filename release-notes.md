@@ -1,5 +1,12 @@
 # OpenTimestamps Server Release Notes
 
+## v0.6.0
+
+* Now compatible with Bitcoin Core v24.0
+* Improved stats display
+
+Due to the removal of `getaccountaddress` a fixed donation address is now used.
+
 ## v0.5.0
 
 * Increased max tx fee to account for current conditions

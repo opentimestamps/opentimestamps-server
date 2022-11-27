@@ -422,7 +422,7 @@ class Stamper:
                 logging.error("Maximum txfee reached!")
                 return
 
-            r = proxy.signrawtransaction(unsigned_tx)
+            r = proxy.signrawtransactionwithwallet(unsigned_tx)
             if not r['complete']:
                 logging.error("Failed to sign transaction! r = %r" % r)
                 return

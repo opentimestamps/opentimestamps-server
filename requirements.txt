@@ -1,7 +1,6 @@
 opentimestamps>=0.3.0,<0.5.0
 GitPython>=2.0.8
 leveldb>=0.20
-pysha3>=1.0.2
 pystache>=0.5
 requests>=2.21
 qrcode==6.1

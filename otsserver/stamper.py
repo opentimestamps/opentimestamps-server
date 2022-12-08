@@ -287,9 +287,11 @@ class Stamper:
 
         new_blocks = self.known_blocks.update_from_proxy(proxy)
 
-        # code after this if it's executed only when we have new blocks, it simplify reasoning at the cost of not
-        # having a broadcasted tx immediately after we have a new cycle (the calendar wait the next block)
-        if not new_blocks:
+        # If we don't have any new blocks, and we have any unconfirmed
+        # transactions, wait for a new block because there is nothing useful we
+        # can do as the unconfirmed txs haven't been given a chance to get
+        # mined.
+        if not new_blocks and len(self.unconfirmed_txs) > 0:
             return
 
         for (block_height, block_hash) in new_blocks:

@@ -264,7 +264,7 @@ You can donate to the wallet by sending funds to:</br>
 
 {{ #lightning_invoice }}
 <p>
-You can donate through lightning network with the following invoice:</br>
+You can also donate with Lightning:</br>
 <img src="data:image/png;base64, {{ lightning_invoice_qr }}" width="400"/></br>
 <span>{{ lightning_invoice }}</span>
 </p>

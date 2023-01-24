@@ -245,9 +245,9 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 <p>
 Pending commitments: {{ pending_commitments }}</br>
 Transactions waiting for confirmation: {{ txs_waiting_for_confirmation }}</br>
-Most recent unconfirmed timestamp tx: <a href="https://mempool.space/tx/{{ most_recent_tx }}">{{ most_recent_tx }}</a> ({{ prior_versions }} prior versions)</br>
+Most recent unconfirmed timestamp tx: <a href="{{ explorer_url }}/tx/{{ most_recent_tx }}">{{ most_recent_tx }}</a> ({{ prior_versions }} prior versions)</br>
 Most recent merkle tree tip: {{ tip }}</br>
-Best-block: <a href="https://mempool.space/block/{{ best_block }}">{{ best_block }}</a>, height {{ block_height }}</br>
+Best-block: <a href="{{ explorer_url }}/block/{{ best_block }}">{{ best_block }}</a>, height {{ block_height }}</br>
 </br>
 Wallet balance: {{ balance }} BTC</br>
 </p>
@@ -280,7 +280,7 @@ Latest mined transactions (confirmations): </br>
 </br>
 <tt>
 {{#transactions}}
-    <a href="https://mempool.space/tx/{{txid}}">{{txid}}</a> {{fee}} ({{confirmations}})</br>
+    <a href="{{ explorer_url }}/tx/{{txid}}">{{txid}}</a> {{fee}} ({{confirmations}})</br>
 {{/transactions}}
 </tt>
 </p>
@@ -304,7 +304,7 @@ Latest mined transactions (confirmations): </br>
               'fees_in_last_week': fees_in_last_week,
               'lightning_invoice': lightning_invoice,
               'lightning_invoice_qr': lightning_invoice_qr,
-
+              'explorer_url': self.explorer_url,
             }
             if self.headers['Accept'] == "application/json":
                 self.wfile.write(str.encode(simplejson.dumps(stats, use_decimal=True, indent=4 * ' ')))
@@ -332,7 +332,7 @@ Latest mined transactions (confirmations): </br>
 
 
 class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file, donation_addr):
+    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file, donation_addr, explorer_url):
 
         class rpc_request_handler(RPCRequestHandler):
             pass
@@ -340,6 +340,7 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
         rpc_request_handler.calendar = calendar
         rpc_request_handler.lightning_invoice_file = lightning_invoice_file
         rpc_request_handler.donation_addr = donation_addr
+        rpc_request_handler.explorer_url = explorer_url
 
         journal = Journal(calendar.path + '/journal')
         rpc_request_handler.backup = Backup(journal, calendar, calendar.path + '/backup_cache')

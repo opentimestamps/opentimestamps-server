@@ -204,9 +204,9 @@ def find_unspent(proxy):
                     # means we can spend it
                     proxy.gettransaction(txin.prevout.hash)
 
-                    # All our txs will have a single input, with opt-in RBF set
+                    # All our txs will have a single input
                     prevout_tx = proxy.getrawtransaction(txin.prevout.hash)
-                    if len(prevout_tx.vin) != 1 or prevout_tx.vin[0].nSequence != 0xfffffffd:
+                    if len(prevout_tx.vin) != 1:
                         continue
                 except IndexError:
                     continue
@@ -221,17 +221,14 @@ class Stamper:
     """Timestamping bot"""
 
     @staticmethod
-    def __create_new_timestamp_tx_template(outpoint, txout_value, change_scriptPubKey):
+    def __create_new_timestamp_tx_template(outpoint, txout_value, change_scriptPubKey, full_rbf):
         """Create a new timestamp transaction template
 
         The transaction created will have one input and two outputs, with the
         timestamp output set to an invalid dummy.
-
-        The fee is set to zero, but nSequence is set to opt-in to transaction
-        replacement, so you can find an appropriate fee iteratively.
         """
 
-        return CTransaction([CTxIn(outpoint, nSequence=0xfffffffd)],
+        return CTransaction([CTxIn(outpoint, nSequence=0xfffffffe if full_rbf else 0xfffffffd)],
                             [CTxOut(txout_value, change_scriptPubKey),
                              CTxOut(-1, CScript())])
 
@@ -399,7 +396,8 @@ class Stamper:
             change_addr_script = x(change_addr_info['scriptPubKey'])
 
             prev_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'],
-                                                              change_addr_script)
+                                                              change_addr_script,
+                                                              self.full_rbf)
 
             logging.debug('New timestamp tx, spending output %r, value %s' % (unspent[-1]['outpoint'],
                                                                               str_money_value(unspent[-1]['amount'])))
@@ -545,7 +543,7 @@ class Stamper:
 
         return False
 
-    def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee, max_pending):
+    def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee, full_rbf, max_pending):
         self.calendar = calendar
         self.exit_event = exit_event
 
@@ -554,6 +552,7 @@ class Stamper:
         assert self.min_confirmations > 1
         self.min_tx_interval = min_tx_interval
         self.max_fee = max_fee
+        self.full_rbf = full_rbf
         self.max_pending = max_pending
 
         self.known_blocks = KnownBlocks()

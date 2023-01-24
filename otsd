@@ -85,6 +85,9 @@ parser.add_argument("--btc-min-tx-interval", metavar='SECONDS', type=int,
 parser.add_argument("--btc-max-fee", metavar='FEE', type=float,
                     default=0.001,
                     help="Maximum transaction fee (default: %(default).3f BTC)")
+parser.add_argument("--btc-full-rbf", action='store_true',
+                    default=False,
+                    help="Do full-RBF replacements")
 
 btc_net_group = parser.add_mutually_exclusive_group()
 btc_net_group.add_argument('--btc-testnet', dest='btc_net', action='store_const',
@@ -146,6 +149,7 @@ stamper = otsserver.stamper.Stamper(calendar, exit_event,
                                     args.btc_min_confirmations,
                                     args.btc_min_tx_interval,
                                     args.btc_max_fee * bitcoin.core.COIN,
+                                    args.btc_full_rbf,
                                     args.max_pending)
 
 calendar.stamper = stamper

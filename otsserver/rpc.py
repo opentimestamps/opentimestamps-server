@@ -257,7 +257,7 @@ Wallet balance: {{ balance }} BTC</br>
 <p>
 You can donate to the wallet by sending funds to:</br>
 <img src="data:image/png;base64, {{ address_qr }}" width="250" /></br>
-<span>{{ address }}</span>
+<span><a href="{{ explorer_url }}/address/{{ address }}">{{ address }}</a></span>
 </p>
 
 <hr>

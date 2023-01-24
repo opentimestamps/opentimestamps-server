@@ -539,7 +539,7 @@ class Stamper:
                for commitment_timestamp in ttx.commitment_timestamps:
                     if commitment == commitment_timestamp.msg:
                         return "Timestamped by transaction %s; waiting for %d confirmations"\
-                               % (b2lx(ttx.tx.GetTxid()), self.min_confirmations-1)
+                               % (b2lx(ttx.tx.GetTxid()), self.min_confirmations)
 
         return False
 

@@ -5,3 +5,4 @@ requests>=2.21
 qrcode==6.1
 image==1.5.27
 simplejson==3.16.0
+python-bitcoinlib>=0.12.0

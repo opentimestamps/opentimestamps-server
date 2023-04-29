@@ -415,7 +415,14 @@ class Stamper:
         proxy = bitcoin.rpc.Proxy()
 
         sent_tx = None
-        relay_feerate = self.relay_feerate
+
+        initial_feerate = proxy._call("estimatesmartfee", self.conf_target)
+        try:
+            inital_feerate = initial_feerate['feerate'] * COIN / 1000
+        except KeyError:
+            initial_feerate = self.relay_feerate
+
+        relay_feerate = initial_feerate
         while sent_tx is None:
             unsigned_tx = self.__update_timestamp_tx(prev_tx, tip_timestamp.msg,
                                                      proxy.getblockcount(), relay_feerate)
@@ -549,10 +556,11 @@ class Stamper:
 
         return False
 
-    def __init__(self, calendar, exit_event, relay_feerate, min_confirmations, min_tx_interval, max_fee, full_rbf, max_pending):
+    def __init__(self, calendar, exit_event, conf_target, relay_feerate, min_confirmations, min_tx_interval, max_fee, full_rbf, max_pending):
         self.calendar = calendar
         self.exit_event = exit_event
 
+        self.conf_target = conf_target
         self.relay_feerate = relay_feerate
         self.min_confirmations = min_confirmations
         assert self.min_confirmations > 1

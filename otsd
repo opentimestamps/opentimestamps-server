@@ -72,9 +72,9 @@ parser.add_argument("--max-pending", type=int,
                     default=100000,
                     help="Maximum number of pending commitments to timestamp at a time (default: %(default)s)")
 
-parser.add_argument("--btc-min-relay-feerate", metavar='FEEPERKB', type=float,
-                    default=0.00001,
-                    help="Minimum relay feerate (default: %(default).6f BTC/KB)")
+parser.add_argument("--btc-min-relay-feerate", metavar='FEERATE', type=float,
+                    default=1,
+                    help="Minimum relay feerate (default: %(default).1f sat/vB)")
 parser.add_argument("--btc-min-confirmations", metavar='N', type=int,
                     default=6,
                     help="Confirmations required before we save a Bitcoin timestamp permanently, must be greater than 1"
@@ -145,7 +145,7 @@ calendar = otsserver.calendar.Calendar(calendar_path)
 aggregator = otsserver.calendar.Aggregator(calendar, exit_event)
 
 stamper = otsserver.stamper.Stamper(calendar, exit_event,
-                                    args.btc_min_relay_feerate / 1000 * bitcoin.core.COIN,
+                                    args.btc_min_relay_feerate,
                                     args.btc_min_confirmations,
                                     args.btc_min_tx_interval,
                                     args.btc_max_fee * bitcoin.core.COIN,

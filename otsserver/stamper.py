@@ -239,7 +239,13 @@ class Stamper:
         Returns the old transaction with a new commitment, and with the fee
         bumped appropriately.
         """
-        delta_fee = int(len(old_tx.serialize()) * relay_feerate)
+
+        # HACK: When we send the first transaction this function is called with
+        # a dummy old_tx without a witness. So artifically increase the
+        # estimated weight to a known minimum. This hack will need to be fixed
+        # if we ever allow for multiple inputs.
+        estimated_weight = max(old_tx.calc_weight(), 609)
+        delta_fee = int((estimated_weight + 3)/4 * relay_feerate)
 
         old_change_txout = old_tx.vout[0]
 

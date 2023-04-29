@@ -1,5 +1,10 @@
 # OpenTimestamps Server Release Notes
 
+## v0.7.0-dev
+
+* BREAKING CHANGE: `--btc-min-relay-feerate` is now denominated in sat/vB.
+* Fixed fee calculation to properly take segwit discount into account.
+
 ## v0.6.0
 
 * Now compatible with Bitcoin Core v24.0

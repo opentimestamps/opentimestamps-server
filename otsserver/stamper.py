@@ -418,7 +418,7 @@ class Stamper:
 
         initial_feerate = proxy._call("estimatesmartfee", self.conf_target)
         try:
-            initial_feerate = initial_feerate['feerate'] * COIN / 1000
+            initial_feerate = float(initial_feerate['feerate']) * COIN / 1000
         except KeyError:
             initial_feerate = self.relay_feerate
 

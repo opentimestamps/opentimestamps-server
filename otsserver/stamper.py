@@ -225,12 +225,11 @@ class Stamper:
         """Create a new timestamp transaction template
 
         The transaction created will have one input and two outputs, with the
-        timestamp output set to an invalid dummy.
+        timestamp output set to an dummy OP_RETURN with an invalid amount.
         """
-
         return CTransaction([CTxIn(outpoint, nSequence=0xfffffffe if full_rbf else 0xfffffffd)],
                             [CTxOut(txout_value, change_scriptPubKey),
-                             CTxOut(-1, CScript())])
+                             CTxOut(-1, CScript([OP_RETURN, b'\x00' * 32]))])
 
     @staticmethod
     def __update_timestamp_tx(old_tx, new_commitment, new_min_block_height, relay_feerate):
@@ -240,12 +239,7 @@ class Stamper:
         bumped appropriately.
         """
 
-        # HACK: When we send the first transaction this function is called with
-        # a dummy old_tx without a witness. So artifically increase the
-        # estimated weight to a known minimum. This hack will need to be fixed
-        # if we ever allow for multiple inputs.
-        estimated_weight = max(old_tx.calc_weight(), 609)
-        delta_fee = int((estimated_weight + 3)/4 * relay_feerate)
+        delta_fee = int((old_tx.calc_weight() + 3)/4 * relay_feerate)
 
         old_change_txout = old_tx.vout[0]
 
@@ -382,6 +376,11 @@ class Stamper:
 
                 break
 
+        # We've finished dealing with the new block(s) and any transactions
+        # that have confirmed. Now we handling sending new transactions, be it
+        # the first transaction of a fee-bumping cycle. Or replacing previously
+        # sent transactions.
+
         time_to_next_tx = self.next_timestamp_tx - time.time()
         if time_to_next_tx > 0:
             # Minimum interval between transactions hasn't been reached, so do nothing
@@ -392,7 +391,10 @@ class Stamper:
             logging.debug("No pending commitments, no tx needed")
             return
 
+
+
         if self.unconfirmed_txs:
+            bump_feerate = self.relay_feerate
             (prev_tx, prev_tip_timestamp, prev_commitment_timestamps) = self.unconfirmed_txs[-1]
 
         # First transaction of a new cycle
@@ -408,12 +410,30 @@ class Stamper:
             change_addr_info = proxy._call("getaddressinfo", change_addr)
             change_addr_script = x(change_addr_info['scriptPubKey'])
 
-            prev_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'],
-                                                              change_addr_script,
-                                                              self.full_rbf)
+            unsigned_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'],
+                                                                  change_addr_script,
+                                                                  self.full_rbf)
+
+            # Sign the initial tx template so that fee estimation knows how big
+            # it is, including the size of the signature.
+            r = proxy.signrawtransactionwithwallet(unsigned_tx)
+            if not r['complete']:
+                logging.error("Failed to sign transaction! r = %r" % r)
+                return
+            prev_tx = r['tx']
 
             logging.debug('New timestamp tx, spending output %r, value %s' % (unspent[-1]['outpoint'],
                                                                               str_money_value(unspent[-1]['amount'])))
+
+            # For the first transaction, use an estimated fee with confirmation
+            # target as the bump_feerate. It'll get reset later.
+            initial_feerate = proxy._call("estimatesmartfee", self.conf_target)
+            try:
+                initial_feerate = float(initial_feerate['feerate']) * COIN / 1000
+            except KeyError:
+                initial_feerate = self.relay_feerate
+
+            bump_feerate = initial_feerate
 
         (tip_timestamp, commitment_timestamps) = self.__pending_to_merkle_tree(len(self.pending_commitments))
         logging.debug("New tip is %s" % b2x(tip_timestamp.msg))
@@ -422,17 +442,12 @@ class Stamper:
         proxy = bitcoin.rpc.Proxy()
 
         sent_tx = None
-
-        initial_feerate = proxy._call("estimatesmartfee", self.conf_target)
-        try:
-            initial_feerate = float(initial_feerate['feerate']) * COIN / 1000
-        except KeyError:
-            initial_feerate = self.relay_feerate
-
-        relay_feerate = initial_feerate
         while sent_tx is None:
             unsigned_tx = self.__update_timestamp_tx(prev_tx, tip_timestamp.msg,
-                                                     proxy.getblockcount(), relay_feerate)
+                                                     proxy.getblockcount(), bump_feerate)
+
+            # Reset now that the initial tx template has been processed.
+            bump_feerate = self.relay_feerate
 
             fee = _get_tx_fee(unsigned_tx, proxy)
             if fee is None:
@@ -455,7 +470,7 @@ class Stamper:
                     logging.debug("Err: %r" % err.error)
                     # Insufficient priority - basically means we didn't
                     # pay enough, so try again with a higher feerate
-                    relay_feerate *= 2
+                    bump_feerate *= 1.25
                     continue
 
                 else:

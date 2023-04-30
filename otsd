@@ -136,6 +136,8 @@ if args.btc_net == 'testnet':
 elif args.btc_net == 'regtest':
     bitcoin.SelectParams('regtest')
 
+if not (1 <= args.btc_conf_target <= 1008):
+    args.parser.error("--btc-conf-target must be in range 1 <= N <= 1008")
 
 exit_event = threading.Event()
 

@@ -332,12 +332,17 @@ class Stamper:
                     time.sleep(5)
                     proxy = bitcoin.rpc.Proxy()
 
-            # the following is an optimization, by pre computing the tx_id we rapidly check if our unconfirmed tx
-            # is in the block
+            # Pre-compute the block txids once, rather than recalculating them
+            # for each unconfirmed_tx
             block_txids = set(tx.GetTxid() for tx in block.vtx)
 
             # Check all potential pending txs against this block.
-            # iterating in reverse order to prioritize most recent digest which commits to a bigger merkle tree
+            #
+            # We iterate in reverse order to prioritize the most recent digest,
+            # which would commit to the biggest merkle tree. However, at the
+            # moment this doesn't actually matter, as we are only checking
+            # transactions we created, which always conflict with each other
+            # due to RBF.
             for unconfirmed_tx in self.unconfirmed_txs[::-1]:
 
                 if unconfirmed_tx.tx.GetTxid() not in block_txids:
@@ -389,7 +394,9 @@ class Stamper:
 
         if self.unconfirmed_txs:
             (prev_tx, prev_tip_timestamp, prev_commitment_timestamps) = self.unconfirmed_txs[-1]
-        else:  # first tx of a new cycle
+
+        # First transaction of a new cycle
+        else:
             # Find the biggest unspent output that's confirmed
             unspent = find_unspent(proxy)
 

@@ -391,14 +391,14 @@ class Stamper:
             logging.debug("No pending commitments, no tx needed")
             return
 
-
-
+        new_tx = False
         if self.unconfirmed_txs:
             bump_feerate = self.relay_feerate
             (prev_tx, prev_tip_timestamp, prev_commitment_timestamps) = self.unconfirmed_txs[-1]
 
         # First transaction of a new cycle
         else:
+            new_tx = True
             # Find the biggest unspent output that's confirmed
             unspent = find_unspent(proxy)
 
@@ -447,7 +447,9 @@ class Stamper:
                                                      proxy.getblockcount(), bump_feerate)
 
             # Reset now that the initial tx template has been processed.
-            bump_feerate = self.relay_feerate
+            if new_tx:
+                new_tx = False
+                bump_feerate = self.relay_feerate
 
             fee = _get_tx_fee(unsigned_tx, proxy)
             if fee is None:

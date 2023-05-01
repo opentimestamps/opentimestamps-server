@@ -22,7 +22,7 @@ from functools import reduce
 from io import BytesIO
 
 import bitcoin.core
-from bitcoin.core import b2lx, b2x
+from bitcoin.core import b2lx, b2x, COIN
 
 from otsserver.backup import Backup
 import otsserver
@@ -206,9 +206,11 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             except Exception as err:
                 return
 
-            # FIXME: Unfortunately getbalance() doesn't return the right thing;
-            # need to investigate further, but this seems to work.
-            str_wallet_balance = str(proxy._call("getbalance"))
+            # minconf=1 will underestimate the balance when timestamp txs are
+            # pending. But this at least avoids confusion if an unconfirmed
+            # transaction has been made in the wallet, tying up coins. Eg if a
+            # tx has been made to combine dust UTXOs.
+            str_wallet_balance = str(proxy.getbalance(minconf=1) / COIN)
 
             transactions = proxy._call("listtransactions", "*", 1000)
             # We want only the confirmed txs containing an OP_RETURN, from most to least recent
@@ -250,7 +252,7 @@ Most recent unconfirmed timestamp tx: <a href="{{ explorer_url }}/tx/{{ most_rec
 Most recent merkle tree tip: {{ tip }}</br>
 Best-block: <a href="{{ explorer_url }}/block/{{ best_block }}">{{ best_block }}</a>, height {{ block_height }}</br>
 </br>
-Wallet balance: {{ balance }} BTC</br>
+Wallet balance: {{ balance }} BTC (confirmed)</br>
 </p>
 
 <hr>

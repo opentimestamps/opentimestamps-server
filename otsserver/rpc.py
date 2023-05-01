@@ -22,7 +22,7 @@ from functools import reduce
 from io import BytesIO
 
 import bitcoin.core
-from bitcoin.core import b2lx, b2x, COIN
+from bitcoin.core import b2lx, b2x, str_money_value
 
 from otsserver.backup import Backup
 import otsserver
@@ -210,7 +210,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             # pending. But this at least avoids confusion if an unconfirmed
             # transaction has been made in the wallet, tying up coins. Eg if a
             # tx has been made to combine dust UTXOs.
-            str_wallet_balance = str(proxy.getbalance(minconf=1) / COIN)
+            str_wallet_balance = str_money_value(proxy.getbalance(minconf=1))
 
             transactions = proxy._call("listtransactions", "*", 1000)
             # We want only the confirmed txs containing an OP_RETURN, from most to least recent

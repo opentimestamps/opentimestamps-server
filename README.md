@@ -81,4 +81,6 @@ example configuration for nginx is provided under `contrib/nginx`.
 
 ## Unit tests
 
+```
 python3 -m unittest discover -v
+```

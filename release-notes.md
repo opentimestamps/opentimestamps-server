@@ -1,9 +1,14 @@
 # OpenTimestamps Server Release Notes
 
-## v0.7.0-dev
+## v0.7.0
 
+* `python-bitcoinlib` >= 0.12.1 is now required; previously 0.12.0 was allowed.
 * BREAKING CHANGE: `--btc-min-relay-feerate` is now denominated in sat/vB.
 * Fixed fee calculation to properly take segwit discount into account.
+* New `--btc-conf-target` option, to allow Bitcoin Core's fee estimation to be
+  used for the first tx in a round.
+* Balance now shows confirmed coins only to avoid confusion when there are
+  unconfirmed transactions tying up coins.
 
 ## v0.6.0
 

@@ -1,5 +1,11 @@
 # OpenTimestamps Server Release Notes
 
+## v0.7.1
+
+* `Vary` header is now set correctly; previously a request for
+  `application/json` would fill any web caches with the wrong content type.
+  Fixed https://github.com/opentimestamps/opentimestamps-server/pull/100
+
 ## v0.7.0
 
 * `python-bitcoinlib` >= 0.12.1 is now required; previously 0.12.0 was allowed.

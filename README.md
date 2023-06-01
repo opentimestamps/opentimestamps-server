@@ -39,7 +39,7 @@ The donation address needs to be a valid Bitcoin address for the type of
 network (mainnet, testnet, regtest) you're running otsd on. It's displayed on
 the calendar info page.
 
-The HMAC key should be kept secret; it's meant to allow for last-ditch calendar
+The HMAC key should be kept secret. It's meant to allow for last-ditch calendar
 recovery from untrusted sources, although only part of the functionality is
 implemented. See the source code for more details!
 

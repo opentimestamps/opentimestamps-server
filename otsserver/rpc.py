@@ -198,6 +198,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             # Humans are likely to be refreshing this, so keep it up-to-date
             # Changed to 5 seconds, otherwise cache was never hit
             self.send_header('Cache-Control', 'public, max-age=5')
+            self.send_header('Vary', 'Accept')
 
             self.end_headers()
 

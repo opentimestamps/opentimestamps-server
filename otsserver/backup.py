@@ -145,7 +145,7 @@ class Backup:
         temp_file.close()
         os.rename(temp_file.name, cache_file)  # rename is atomic
 
-# The following is a shrinked version of the standard calendar http server, it only support the '/timestamp' endpoint
+# The following is a shrunk version of the standard calendar http server, it only support the '/timestamp' endpoint
 # This way the backup server could serve request in place of the calendar serve which is backupping
 class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 

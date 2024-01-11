@@ -86,7 +86,7 @@ class JournalWriter(Journal):
     def submit(self, commitment):
         """Add a new commitment to the journal
 
-        Returns only after the commitment is syncronized to disk.
+        Returns only after the commitment is synchronized to disk.
         """
         # Pad with null HMAC if necessary
         if len(commitment) == self.COMMITMENT_SIZE - HMAC_SIZE:
@@ -279,7 +279,7 @@ class Aggregator:
 
             self.calendar.submit(digests_commitment)
 
-            # Notify all requestors that the commitment is done
+            # Notify all requesters that the commitment is done
             for done_event in done_events:
                 done_event.set()
 
@@ -299,7 +299,7 @@ class Aggregator:
         """
         timestamp = Timestamp(msg)
 
-        # Add nonce to ensure requestor doesn't learn anything about other
+        # Add nonce to ensure requester doesn't learn anything about other
         # messages being committed at the same time, as well as to ensure that
         # anything we store related to this commitment can't be controlled by
         # them.

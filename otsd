@@ -27,6 +27,8 @@ import otsserver.calendar
 import otsserver.rpc
 import otsserver.stamper
 
+import opentimestamps.calendar
+
 parser = argparse.ArgumentParser(description="OpenTimestamps Server")
 
 parser.add_argument("-q", "--quiet", action="count", default=0,
@@ -92,6 +94,11 @@ parser.add_argument("--btc-max-fee", metavar='FEE', type=float,
 parser.add_argument("--btc-full-rbf", action='store_true',
                     default=False,
                     help="Do full-RBF replacements")
+parser.add_argument("--upstream", type=str,
+                    help="Calling another upstream server for timestamping, while performing a transaction by itself if the upstream is not available")
+
+parser.add_argument("--upstream-timeout", type=int, default=100,
+                    help="If the upstream don't upgrade after the timeout, proceed timestamping by its own")
 
 btc_net_group = parser.add_mutually_exclusive_group()
 btc_net_group.add_argument('--btc-testnet', dest='btc_net', action='store_const',
@@ -149,6 +156,13 @@ with open(calendar_path + '/donation_addr', "r") as fd:
 
 calendar = otsserver.calendar.Calendar(calendar_path)
 aggregator = otsserver.calendar.Aggregator(calendar, exit_event)
+upstream_calendar = None
+upstream_aggregator = None
+
+if args.upstream:
+    upstream_calendar = opentimestamps.calendar.RemoteCalendar(args.upstream,
+                                                  user_agent="OpenTimestamps-Server/%s" % otsserver.__version__)
+    upstream_aggregator = otsserver.calendar.UpstreamAggregator(upstream_calendar, calendar, exit_event, upstream_timeout=args.upstream_timeout)
 
 stamper = otsserver.stamper.Stamper(calendar, exit_event,
                                     args.btc_conf_target,
@@ -166,7 +180,9 @@ server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port),
                                    calendar,
                                    args.lightning_invoice_file,
                                    donation_address,
-                                   args.explorer_url)
+                                   args.explorer_url,
+                                   upstream_aggregator=upstream_aggregator,
+                                   upstream_calendar=upstream_calendar)
 
 try:
     server.serve_forever()

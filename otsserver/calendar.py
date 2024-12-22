@@ -18,6 +18,7 @@ import struct
 import sys
 import threading
 import time
+import requests
 
 from opentimestamps.core.notary import TimeAttestation, PendingAttestation, BitcoinBlockHeaderAttestation
 from opentimestamps.core.op import Op, OpPrepend, OpAppend, OpSHA256
@@ -101,6 +102,8 @@ class JournalWriter(Journal):
         os.fsync(self.append_fd.fileno())
 
 class LevelDbCalendar:
+    def __del__(self):
+        del self.db
     def __init__(self, path):
         self.db = leveldb.LevelDB(path)
 
@@ -142,7 +145,7 @@ class LevelDbCalendar:
         for op in new_timestamp.ops:
             op.serialize(ctx)
 
-        batch.Put(new_timestamp.msg, ctx.getbytes())
+        batch.Put(new_timestamp.msg.encode('utf-8'), ctx.getbytes())
         batch_cache[new_timestamp.msg] = new_timestamp
 
     def __getitem__(self, msg):
@@ -205,36 +208,44 @@ class LevelDbCalendar:
         self.db.Write(batch, sync=True)
         logging.debug("Done LevelDbCalendar.add_timestamps(), added %d timestamps total" % n)
 
+
 class Calendar:
-    def __init__(self, path):
+    def __init__(self, path, upstream=None, upstream_timeout=15):
         path = os.path.normpath(path)
         os.makedirs(path, exist_ok=True)
         self.path = path
-        self.journal = JournalWriter(path + '/journal')
+        self.journal = JournalWriter(os.path.join(path, 'journal'))
 
-        self.db = LevelDbCalendar(path + '/db')
+        self.db = LevelDbCalendar(os.path.join(path, 'db'))
+
+        self.upstream = upstream
+        self.upstream_timeout = upstream_timeout
 
         try:
-            uri_path = self.path + '/uri'
+            uri_path = os.path.join(self.path, 'uri')
             with open(uri_path, 'r') as fd:
                 self.uri = fd.read().strip()
-        except FileNotFoundError as err:
-            logging.error('Calendar URI not yet set; %r does not exist' % uri_path)
+        except FileNotFoundError:
+            logging.error('Calendar URI not yet set; %r does not exist', uri_path)
+            sys.exit(1)
+        except Exception as e:
+            logging.error('Error reading Calendar URI: %s', e)
             sys.exit(1)
 
         try:
-            hmac_key_path = self.path + '/hmac-key'
+            hmac_key_path = os.path.join(self.path, 'hmac-key')
             with open(hmac_key_path, 'rb') as fd:
                 self.hmac_key = fd.read()
-        except FileNotFoundError as err:
-            logging.error('HMAC secret key not set; %r does not exist' % hmac_key_path)
+        except FileNotFoundError:
+            logging.error('HMAC secret key not set; %r does not exist', hmac_key_path)
+            sys.exit(1)
+        except Exception as e:
+            logging.error('Error reading HMAC secret key: %s', e)
             sys.exit(1)
 
     def submit(self, submitted_commitment):
         idx = int(time.time())
-
         serialized_idx = struct.pack('>L', idx)
-
         commitment = submitted_commitment.ops.add(OpPrepend(serialized_idx))
 
         per_idx_key = derive_key_for_idx(self.hmac_key, idx, bits=32)
@@ -244,17 +255,18 @@ class Calendar:
         macced_commitment.attestations.add(PendingAttestation(self.uri))
         self.journal.submit(macced_commitment.msg)
 
-    def __contains__(self, commitment):
-        return commitment in self.db
-
-    def __getitem__(self, commitment):
-        """Get commitment timestamps(s)"""
-        return self.db[commitment]
-
-    def add_commitment_timestamps(self, new_timestamps):
-        """Add timestamps"""
-        self.db.add_timestamps(new_timestamps)
-
+        # send server commitment to upstream
+        if self.upstream:
+            try:
+                response = requests.post(
+                    self.upstream,
+                    data=macced_commitment.msg,
+                    timeout=self.upstream_timeout
+                )
+                response.raise_for_status()
+                logging.info(f"Commitment sent to upstream: {self.upstream}")
+            except requests.RequestException as e:
+                logging.error(f"Failed to send commitment to upstream: {e}")
 
 class Aggregator:
     def __loop(self):
@@ -262,7 +274,6 @@ class Aggregator:
         while not self.exit_event.wait(self.commitment_interval):
             digests = []
             done_events = []
-            last_commitment = time.time()
             while not self.digest_queue.empty():
                 # This should never raise the Empty exception, as we should be
                 # the only thread taking items off the queue
@@ -270,16 +281,13 @@ class Aggregator:
                 digests.append(digest)
                 done_events.append(done_event)
 
-            if not len(digests):
+            if not digests:
                 continue
 
             digests_commitment = make_merkle_tree(digests)
-
             logging.info("Aggregated %d digests under commitment %s" % (len(digests), b2x(digests_commitment.msg)))
-
             self.calendar.submit(digests_commitment)
-
-            # Notify all requesters that the commitment is done
+# Notify all requestors that the commitment is done
             for done_event in done_events:
                 done_event.set()
 
@@ -291,21 +299,18 @@ class Aggregator:
         self.thread = threading.Thread(target=self.__loop)
         self.thread.start()
 
-    def submit(self, msg):
+    def submit(self, msg):   
         """Submit message for aggregation
 
         Aggregator thread will aggregate the message along with all other
         messages, and return a Timestamp
-        """
+        """  
         timestamp = Timestamp(msg)
-
-        # Add nonce to ensure requester doesn't learn anything about other
+        # Add nonce to ensure requestor doesn't learn anything about other
         # messages being committed at the same time, as well as to ensure that
         # anything we store related to this commitment can't be controlled by
         # them.
         done_event = threading.Event()
         self.digest_queue.put((nonce_timestamp(timestamp), done_event))
-
         done_event.wait()
-
         return timestamp

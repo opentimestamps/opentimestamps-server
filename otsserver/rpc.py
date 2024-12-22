@@ -67,7 +67,12 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
         digest = self.rfile.read(content_length)
 
-        timestamp = self.aggregator.submit(digest)
+        timestamp = None
+        
+        if self.upstream_calendar is not None:
+            timestamp = self.upstream_aggregator.submit(digest)
+        else:
+            timestamp = self.aggregator.submit(digest)
 
         self.send_response(200)
         self.send_header('Content-type', 'application/octet-stream')
@@ -336,12 +341,14 @@ Latest mined transactions (confirmations): </br>
 
 
 class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file, donation_addr, explorer_url):
+    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file, donation_addr, explorer_url, upstream_aggregator=None, upstream_calendar=None):
 
         class rpc_request_handler(RPCRequestHandler):
             pass
         rpc_request_handler.aggregator = aggregator
         rpc_request_handler.calendar = calendar
+        rpc_request_handler.upstream_aggregator = upstream_aggregator
+        rpc_request_handler.upstream_calendar = upstream_calendar
         rpc_request_handler.lightning_invoice_file = lightning_invoice_file
         rpc_request_handler.donation_addr = donation_addr
         rpc_request_handler.explorer_url = explorer_url
@@ -350,7 +357,7 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
         rpc_request_handler.backup = Backup(journal, calendar, calendar.path + '/backup_cache')
 
         super().__init__(server_address, rpc_request_handler)
-
+        
     def serve_forever(self):
         super().serve_forever()
 

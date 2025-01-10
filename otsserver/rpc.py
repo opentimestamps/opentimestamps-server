@@ -315,7 +315,7 @@ Latest mined transactions: </br>
 </html>"""
 
             stats = { 'version': otsserver.__version__,
-              'pending_commitments': len(self.calendar.stamper.pending_commitments),
+              'pending_commitments': "{:,}".format(len(self.calendar.stamper.pending_commitments)),
               'txs_waiting_for_confirmation':len(self.calendar.stamper.txs_waiting_for_confirmation),
               'most_recent_tx': b2lx(self.calendar.stamper.unconfirmed_txs[-1].tx.GetTxid()) if self.calendar.stamper.unconfirmed_txs else 'None',
               'prior_versions': max(0, len(self.calendar.stamper.unconfirmed_txs) - 1),

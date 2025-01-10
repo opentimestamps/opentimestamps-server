@@ -22,7 +22,7 @@ from functools import reduce
 from io import BytesIO
 
 import bitcoin.core
-from bitcoin.core import b2lx, b2x, str_money_value
+from bitcoin.core import b2lx, b2x, COIN
 
 from otsserver.backup import Backup
 import otsserver
@@ -211,14 +211,18 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             # pending. But this at least avoids confusion if an unconfirmed
             # transaction has been made in the wallet, tying up coins. Eg if a
             # tx has been made to combine dust UTXOs.
-            str_wallet_balance = str_money_value(proxy.getbalance(minconf=1))
+            wallet_balance = proxy.getbalance(minconf=1)
 
             transactions = proxy._call("listtransactions", "*", 1000)
             # We want only the confirmed txs containing an OP_RETURN, from most to least recent
             transactions = list(filter(lambda x: x["confirmations"] > 0 and x["amount"] == 0, transactions))
+            for tx in transactions:
+                tx["fee"] = int(tx["fee"] * COIN)
+
             a_week_ago = (datetime.date.today() - datetime.timedelta(days=7)).timetuple()
             a_week_ago_posix = time.mktime(a_week_ago)
             transactions_in_last_week = list(filter(lambda x: x["time"] > a_week_ago_posix, transactions))
+
             fees_in_last_week = reduce(lambda a, b: a-b["fee"], transactions_in_last_week, 0)
             try:
                 time_between_transactions = str(round(168 / len(transactions_in_last_week), 2)) # in hours based on 168 hours in a week
@@ -226,6 +230,12 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             except ZeroDivisionError:
                 time_between_transactions = "N/A"
             transactions.sort(key=lambda x: x["confirmations"])
+
+            def str_sat(n):
+                return f"{n:,}"
+
+            for tx in transactions:
+                tx["fee"] = str_sat(-tx["fee"])
 
             lightning_invoice = None
             lightning_invoice_qr = None
@@ -236,6 +246,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
                         lightning_invoice_qr = get_qr(lightning_invoice.upper())
                 except FileNotFoundError:
                     pass
+
 
             address = str(self.donation_addr)
             homepage_template = """<html>
@@ -253,7 +264,7 @@ Most recent unconfirmed timestamp tx: <a href="{{ explorer_url }}/tx/{{ most_rec
 Most recent merkle tree tip: {{ tip }}</br>
 Best-block: <a href="{{ explorer_url }}/block/{{ best_block }}">{{ best_block }}</a>, height {{ block_height }}</br>
 </br>
-Wallet balance: {{ balance }} BTC (confirmed)</br>
+Wallet balance: {{ balance }} sats (confirmed)</br>
 </p>
 
 <hr>
@@ -276,16 +287,27 @@ You can also donate with Lightning:</br>
 {{ /lightning_invoice }}
 <p>
 Average time between transactions in the last week: {{ time_between_transactions }} </br>
-Fees used in the last week: {{ fees_in_last_week }} BTC</br>
+Fees used in the last week: {{ fees_in_last_week }} sats</br>
 </p>
 
 <p>
-Latest mined transactions (confirmations): </br>
+Latest mined transactions: </br>
 </br>
 <tt>
+<table>
+    <tr>
+        <th>txid</th>
+        <th style="text-align:right">fee</th>
+        <th style="text-align:right">confs</th>
+    </tr>
 {{#transactions}}
-    <a href="{{ explorer_url }}/tx/{{txid}}">{{txid}}</a> {{fee}} ({{confirmations}})</br>
+    <tr>
+        <td><a href="{{ explorer_url }}/tx/{{txid}}">{{txid}}</a></td>
+        <td style="text-align:right">{{fee}}</td>
+        <td style="text-align:right">{{confirmations}}</td>
+    </tr>
 {{/transactions}}
+</table>
 </tt>
 </p>
 
@@ -300,12 +322,12 @@ Latest mined transactions (confirmations): </br>
               'tip': b2x(self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg) if self.calendar.stamper.unconfirmed_txs else 'None',
               'best_block': bitcoin.core.b2lx(proxy.getbestblockhash()),
               'block_height': proxy.getblockcount(),
-              'balance': str_wallet_balance,
+              'balance': str_sat(wallet_balance),
               'address': address,
               'address_qr': get_qr(address),
               'transactions': transactions[:288],
               'time_between_transactions': time_between_transactions,
-              'fees_in_last_week': fees_in_last_week,
+              'fees_in_last_week': str_sat(fees_in_last_week),
               'lightning_invoice': lightning_invoice,
               'lightning_invoice_qr': lightning_invoice_qr,
               'explorer_url': self.explorer_url,

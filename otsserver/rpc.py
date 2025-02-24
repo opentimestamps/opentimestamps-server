@@ -26,7 +26,7 @@ from bitcoin.core import b2lx, b2x, COIN
 
 from otsserver.backup import Backup
 import otsserver
-from opentimestamps.core.serialize import StreamSerializationContext
+from opentimestamps.core.serialize import BytesSerializationContext
 
 from otsserver.calendar import Journal
 renderer = pystache.Renderer()
@@ -69,12 +69,16 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
         timestamp = self.aggregator.submit(digest)
 
+        ctx = BytesSerializationContext()
+        timestamp.serialize(ctx)
+        serialized_timestamp = ctx.getbytes()
+
         self.send_response(200)
         self.send_header('Content-type', 'application/octet-stream')
+        self.send_header('Content-Length', len(serialized_timestamp))
         self.end_headers()
 
-        ctx = StreamSerializationContext(self.wfile)
-        timestamp.serialize(ctx)
+        self.wfile.write(serialized_timestamp)
 
     def get_tip(self):
         try:
@@ -167,14 +171,19 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
         self.send_response(200)
 
+        ctx = BytesSerializationContext()
+        timestamp.serialize(ctx)
+        serialized_timestamp = ctx.getbytes()
+
         # Since only Bitcoin attestations are currently made, once a commitment
         # is timestamped by Bitcoin this response will never change.
         self.send_header('Cache-Control', 'public, max-age=31536000')
 
         self.send_header('Content-type', 'application/octet-stream')
+        self.send_header('Content-Length', len(serialized_timestamp))
         self.end_headers()
 
-        timestamp.serialize(StreamSerializationContext(self.wfile))
+        self.wfile.write(serialized_timestamp)
 
     def do_POST(self):
         if self.path == '/digest':

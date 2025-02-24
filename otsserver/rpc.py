@@ -53,14 +53,14 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             content_length = int(content_length)
         except TypeError:
             self.send_response(400)
-            self.send_header('Content-type', 'text/plain')
+            self.send_header('Content-Type', 'text/plain')
             self.end_headers()
             self.wfile.write(b'invalid Content-Length')
             return
 
         if content_length > self.MAX_DIGEST_LENGTH:
             self.send_response(400)
-            self.send_header('Content-type', 'text/plain')
+            self.send_header('Content-Type', 'text/plain')
             self.end_headers()
             self.wfile.write(b'digest too long')
             return
@@ -74,7 +74,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         serialized_timestamp = ctx.getbytes()
 
         self.send_response(200)
-        self.send_header('Content-type', 'application/octet-stream')
+        self.send_header('Content-Type', 'application/octet-stream')
         self.send_header('Content-Length', len(serialized_timestamp))
         self.end_headers()
 
@@ -85,13 +85,13 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             msg = self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg
         except:
             self.send_response(404)
-            self.send_header('Content-type', 'text/plain')
+            self.send_header('Content-Type', 'text/plain')
             self.end_headers()
             return
 
         if msg is not None:
             self.send_response(200)
-            self.send_header('Content-type', 'application/octet-stream')
+            self.send_header('Content-Type', 'application/octet-stream')
             self.send_header('Cache-Control', 'public, max-age=10')
             self.end_headers()
             self.wfile.write(msg)
@@ -107,14 +107,14 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             result = self.backup[chunk]
         except:
             self.send_response(404)
-            self.send_header('Content-type', 'text/plain')
+            self.send_header('Content-Type', 'text/plain')
             self.send_header('Cache-Control', 'public, max-age=60')
             self.end_headers()
             return
 
         assert result is not None
         self.send_response(200)
-        self.send_header('Content-type', 'application/octet-stream')
+        self.send_header('Content-Type', 'application/octet-stream')
         self.send_header('Cache-Control', 'public, max-age=31536000')
         self.end_headers()
         self.wfile.write(result)
@@ -126,7 +126,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             commitment = binascii.unhexlify(commitment)
         except binascii.Error:
             self.send_response(400)
-            self.send_header('Content-type', 'text/plain')
+            self.send_header('Content-Type', 'text/plain')
             self.send_header('Cache-Control', 'public, max-age=31536000') # this will never not be an error!
             self.end_headers()
             self.wfile.write(b'commitment must be hex-encoded bytes')
@@ -136,7 +136,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             timestamp = self.calendar[commitment]
         except KeyError:
             self.send_response(404)
-            self.send_header('Content-type', 'text/plain')
+            self.send_header('Content-Type', 'text/plain')
 
             # Pending?
             reason = self.calendar.stamper.is_pending(commitment)
@@ -179,7 +179,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         # is timestamped by Bitcoin this response will never change.
         self.send_header('Cache-Control', 'public, max-age=31536000')
 
-        self.send_header('Content-type', 'application/octet-stream')
+        self.send_header('Content-Type', 'application/octet-stream')
         self.send_header('Content-Length', len(serialized_timestamp))
         self.end_headers()
 
@@ -191,7 +191,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
         else:
             self.send_response(404)
-            self.send_header('Content-type', 'text/plain')
+            self.send_header('Content-Type', 'text/plain')
 
             # a 404 is only going to become not a 404 if the server is upgraded
             self.send_header('Cache-Control', 'public, max-age=3600')
@@ -202,7 +202,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/':
             self.send_response(200)
-            self.send_header('Content-type', 'text/html')
+            self.send_header('Content-Type', 'text/html')
 
             # Humans are likely to be refreshing this, so keep it up-to-date
             # Changed to 5 seconds, otherwise cache was never hit
@@ -357,7 +357,7 @@ Latest mined transactions: </br>
             self.get_backup()
         else:
             self.send_response(404)
-            self.send_header('Content-type', 'text/plain')
+            self.send_header('Content-Type', 'text/plain')
 
             # a 404 is only going to become not a 404 if the server is upgraded
             self.send_header('Cache-Control', 'public, max-age=3600')

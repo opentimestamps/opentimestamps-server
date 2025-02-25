@@ -269,7 +269,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 <p>
 Pending commitments: {{ pending_commitments }}</br>
 Transactions waiting for confirmation: {{ txs_waiting_for_confirmation }}</br>
-Most recent unconfirmed timestamp tx: <a href="{{ explorer_url }}/tx/{{ most_recent_tx }}">{{ most_recent_tx }}</a> ({{ prior_versions }} prior versions)</br>
+Most recent unconfirmed timestamp tx: <a href="{{ explorer_url }}/tx/{{ most_recent_tx }}?mode=details">{{ most_recent_tx }}</a> ({{ prior_versions }} prior versions)</br>
 Most recent merkle tree tip: {{ tip }}</br>
 Best-block: <a href="{{ explorer_url }}/block/{{ best_block }}">{{ best_block }}</a>, height {{ block_height }}</br>
 </br>
@@ -311,7 +311,7 @@ Latest mined transactions: </br>
     </tr>
 {{#transactions}}
     <tr>
-        <td><a href="{{ explorer_url }}/tx/{{txid}}">{{txid}}</a></td>
+        <td><a href="{{ explorer_url }}/tx/{{txid}}?mode=details">{{txid}}</a></td>
         <td style="text-align:right">{{fee}}</td>
         <td style="text-align:right">{{confirmations}}</td>
     </tr>

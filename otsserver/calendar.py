@@ -309,3 +309,89 @@ class Aggregator:
         done_event.wait()
 
         return timestamp
+
+class UpstreamAggregator:
+    def __init__(self, upstream_calendar, local_calendar, exit_event, upstream_timeout=60):
+        """
+        Args:
+            calendar: Local calendar for fallback stamping.
+            upstream_calendar: Remote calendar for upstream stamping.
+            exit_event: Threading event for graceful shutdown.
+            timeout: Timeout in seconds for upstream proof upgrade.
+        """
+        self.local_calendar = local_calendar
+        self.upstream_calendar = upstream_calendar
+        self.exit_event = exit_event
+        self.timeout = upstream_timeout
+        self.pending_upgrades = {}  # {digest_str: (Timestamp, submission_time)}
+        self.upgrade_lock = threading.Lock()
+        self.thread = threading.Thread(target=self.check_proof_upgrade)
+        self.thread.start()
+
+    def submit(self, msg):
+        """Submit message to upstream server and handle fallback"""
+        timestamp = Timestamp(msg)
+
+        # Send to upstream server
+        try:
+            upstream_timestamp = self.upstream_calendar.submit(msg, timeout=self.timeout)
+        except Exception as exc:
+            logging.warning("Upstream submission failed: %s. Falling back to local stamping.", exc)
+            return self.fallback_to_local_stamping(msg)
+
+        # Check if upstream provided attestations
+        if upstream_timestamp and upstream_timestamp.attestations:
+            logging.info("Upstream provided attestations.")
+            timestamp.merge(upstream_timestamp)
+        else:
+            # Add PendingAttestation and monitor for upgrades
+            logging.info("Adding PendingAttestation and monitoring for upgrades.")
+            timestamp.attestations.add(PendingAttestation(self.upstream_calendar.url))
+            digest_str = b2x(msg)
+            with self.upgrade_lock:
+                self.pending_upgrades[digest_str] = (timestamp, time.time())
+
+        return timestamp
+
+    def fallback_to_local_stamping(self, msg):
+        """Perform local stamping as a fallback"""
+        logging.info("Performing local stamping for %s", b2x(msg))
+        timestamp = Timestamp(msg)
+        self.calendar.submit(timestamp)
+        return timestamp
+
+    def check_proof_upgrade(self):
+        """Monitor for upstream proof upgrades and fallback if needed"""
+        logging.info("Starting proof upgrade checker thread")
+
+        while not self.exit_event.is_set():
+            with self.upgrade_lock:
+                current_time = time.time()
+                to_remove = []
+
+                for digest_str, (timestamp, submission_time) in self.pending_upgrades.items():
+                    elapsed_time = current_time - submission_time
+
+                    # Check if upstream proof has been upgraded
+                    try:
+                        upgraded_timestamp = self.upstream_calendar.get_timestamp(bytes.fromhex(digest_str))
+                        if upgraded_timestamp.attestations:
+                            logging.info("Proof upgraded for %s", digest_str)
+                            timestamp.merge(upgraded_timestamp)
+                            to_remove.append(digest_str)
+                            continue
+                    except Exception as exc:
+                        logging.debug("Failed to fetch upgrade for %s: %s", digest_str, exc)
+
+                    # Check if timeout has been exceeded
+                    if elapsed_time > self.timeout:
+                        logging.warning("Upstream timeout for %s. Falling back to local stamping.", digest_str)
+                        self.fallback_to_local_stamping(bytes.fromhex(digest_str))
+                        to_remove.append(digest_str)
+
+                # Remove completed or timed-out entries
+                for digest_str in to_remove:
+                    del self.pending_upgrades[digest_str]
+
+            # Sleep to avoid excessive resource usage
+            time.sleep(5)

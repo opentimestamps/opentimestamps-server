@@ -221,13 +221,13 @@ class Stamper:
     """Timestamping bot"""
 
     @staticmethod
-    def __create_new_timestamp_tx_template(outpoint, txout_value, change_scriptPubKey, full_rbf):
+    def __create_new_timestamp_tx_template(outpoint, txout_value, change_scriptPubKey):
         """Create a new timestamp transaction template
 
         The transaction created will have one input and two outputs, with the
         timestamp output set to an dummy OP_RETURN with an invalid amount.
         """
-        return CTransaction([CTxIn(outpoint, nSequence=0xfffffffe if full_rbf else 0xfffffffd)],
+        return CTransaction([CTxIn(outpoint, nSequence=0xfffffffe)],
                             [CTxOut(txout_value, change_scriptPubKey),
                              CTxOut(-1, CScript([OP_RETURN, b'\x00' * 32]))])
 
@@ -411,8 +411,7 @@ class Stamper:
             change_addr_script = x(change_addr_info['scriptPubKey'])
 
             unsigned_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'],
-                                                                  change_addr_script,
-                                                                  self.full_rbf)
+                                                                  change_addr_script)
 
             # Sign the initial tx template so that fee estimation knows how big
             # it is, including the size of the signature.
@@ -580,7 +579,7 @@ class Stamper:
 
         return False
 
-    def __init__(self, calendar, exit_event, conf_target, relay_feerate, min_confirmations, min_tx_interval, max_fee, full_rbf, max_pending):
+    def __init__(self, calendar, exit_event, conf_target, relay_feerate, min_confirmations, min_tx_interval, max_fee, max_pending):
         self.calendar = calendar
         self.exit_event = exit_event
 
@@ -590,7 +589,6 @@ class Stamper:
         assert self.min_confirmations > 1
         self.min_tx_interval = min_tx_interval
         self.max_fee = max_fee
-        self.full_rbf = full_rbf
         self.max_pending = max_pending
 
         self.known_blocks = KnownBlocks()

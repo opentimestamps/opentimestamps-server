@@ -230,7 +230,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
                 # FIXME: we should find a way to efficiently find the actual
                 # size rather than assume it
-                size = 234.0
+                size = 152.25
                 tx["feerate"] = fee / size
 
             a_week_ago = (datetime.date.today() - datetime.timedelta(days=7)).timetuple()

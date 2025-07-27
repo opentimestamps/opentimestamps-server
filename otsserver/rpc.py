@@ -226,7 +226,12 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             # We want only the confirmed txs containing an OP_RETURN, from most to least recent
             transactions = list(filter(lambda x: x["confirmations"] > 0 and x["amount"] == 0, transactions))
             for tx in transactions:
-                tx["fee"] = int(tx["fee"] * COIN)
+                fee = -int(tx["fee"] * COIN)
+
+                # FIXME: we should find a way to efficiently find the actual
+                # size rather than assume it
+                size = 234.0
+                tx["feerate"] = fee / size
 
             a_week_ago = (datetime.date.today() - datetime.timedelta(days=7)).timetuple()
             a_week_ago_posix = time.mktime(a_week_ago)
@@ -244,7 +249,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
                 return f"{n:,}"
 
             for tx in transactions:
-                tx["fee"] = str_sat(-tx["fee"])
+                tx["feerate"] = "{:.2f}".format(tx["feerate"])
 
             lightning_invoice = None
             lightning_invoice_qr = None
@@ -306,13 +311,13 @@ Latest mined transactions: </br>
 <table>
     <tr>
         <th>txid</th>
-        <th style="text-align:right">fee</th>
+        <th style="text-align:right">fee-rate</th>
         <th style="text-align:right">confs</th>
     </tr>
 {{#transactions}}
     <tr>
         <td><a href="{{ explorer_url }}/tx/{{txid}}?mode=details">{{txid}}</a></td>
-        <td style="text-align:right">{{fee}}</td>
+        <td style="text-align:right">{{feerate}}</td>
         <td style="text-align:right">{{confirmations}}</td>
     </tr>
 {{/transactions}}

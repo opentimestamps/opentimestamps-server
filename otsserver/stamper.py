@@ -189,25 +189,33 @@ def find_unspent(proxy):
     else:
         logging.info("Couldn't find a confirmed output, trying unconfirmed")
 
-        # Try again with the unconfirmed transactions
+        # Try again with the unconfirmed transactions to find a prior
+        # unconfirmed timestamp transaction that we can safely replace.
         unconfirmed_unspent = sort_filter_unspent(listunspent(proxy, 0, 1))
 
         confirmed_unspent = []
         for unspent_txout in unconfirmed_unspent:
             txid = unspent_txout['outpoint'].hash
             tx = proxy.getrawtransaction(txid)
-            for txin in tx.vin:
+
+            # Unconfirmed timestamp transactions should all have a single input
+            # and two outputs.
+            #
+            # FIXME: we should check that the second output is an op_return
+            if len(tx.vin) == 1 and len(tx.vout) == 2:
+                txin = tx.vin[0]
                 try:
+                    # Check that this output is in the UTXO set, and is thus
+                    # confirmed.
                     confirmed_outpoint = proxy.gettxout(txin.prevout, includemempool=False)
 
-                    # make sure this txout is from a wallet transaction, which
-                    # means we can spend it
+                    # Make sure this txout is from a wallet transaction, which
+                    # means we created it, and can spend it safely without any
+                    # risk of a double-spend.
+                    #
+                    # This is probably overkill as a third party would have a
+                    # hard time double spending a confirmed transaction too.
                     proxy.gettransaction(txin.prevout.hash)
-
-                    # All our txs will have a single input
-                    prevout_tx = proxy.getrawtransaction(txin.prevout.hash)
-                    if len(prevout_tx.vin) != 1:
-                        continue
                 except IndexError:
                     continue
 

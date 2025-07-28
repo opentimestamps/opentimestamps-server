@@ -178,7 +178,7 @@ def listunspent(proxy, minconf=0, maxconf=999999):
 def find_unspent(proxy):
     def sort_filter_unspent(unspent):
         # https://github.com/bitcoin/bitcoin/blob/master/src/policy/policy.cpp
-        DUST = 0.00000546 * COIN
+        DUST = 546
         return sorted(filter(lambda x: x['amount'] > DUST and x['spendable'], unspent),
                       key=lambda x: x['amount'])
 

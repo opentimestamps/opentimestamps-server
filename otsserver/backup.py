@@ -15,7 +15,7 @@ from opentimestamps.core.op import Op
 from opentimestamps.core.serialize import BytesSerializationContext, BytesDeserializationContext, TruncationError, \
     StreamSerializationContext
 import bitcoin.rpc
-import leveldb
+import plyvel
 import logging
 import socketserver
 import http.server
@@ -318,10 +318,10 @@ class AskBackup(threading.Thread):
                         break
                 assert next_key in attestations
 
-            batch = leveldb.WriteBatch()
+            batch = self.db.db.write_batch(sync=True)
             for key, value in kv_map.items():
-                batch.Put(key, value)
-            self.db.db.Write(batch, sync=True)
+                batch.put(key, value)
+            batch.write()
 
             last_known = last_known + 1
             try:

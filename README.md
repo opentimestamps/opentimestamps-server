@@ -15,6 +15,8 @@ You'll need a local Bitcoin node (version 24.0 is known to work) with a wallet
 with some funds in it; a pruned node is fine. While `otsd` is running the
 wallet should not be used for other purposes, as currently the Bitcoin
 timestamping functionality assumes that it has exclusive use of the wallet.
+If your Bitcoin Core node has multiple wallets loaded, pass the wallet name to
+`otsd` with `--btc-wallet WALLET`.
 
 Install the requirements:
 

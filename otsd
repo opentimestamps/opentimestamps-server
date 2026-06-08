@@ -89,6 +89,8 @@ parser.add_argument("--btc-min-tx-interval", metavar='SECONDS', type=int,
 parser.add_argument("--btc-max-fee", metavar='FEE', type=float,
                     default=0.001,
                     help="Maximum transaction fee (default: %(default).3f BTC)")
+parser.add_argument("--btc-wallet", metavar='WALLET',
+                    help="Bitcoin Core wallet name to use for timestamp transactions")
 
 btc_net_group = parser.add_mutually_exclusive_group()
 btc_net_group.add_argument('--btc-testnet', dest='btc_net', action='store_const',
@@ -153,7 +155,8 @@ stamper = otsserver.stamper.Stamper(calendar, exit_event,
                                     args.btc_min_confirmations,
                                     args.btc_min_tx_interval,
                                     args.btc_max_fee * bitcoin.core.COIN,
-                                    args.max_pending)
+                                    args.max_pending,
+                                    args.btc_wallet)
 
 calendar.stamper = stamper
 
@@ -162,7 +165,8 @@ server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port),
                                    calendar,
                                    args.lightning_invoice_file,
                                    donation_address,
-                                   args.explorer_url)
+                                   args.explorer_url,
+                                   args.btc_wallet)
 
 try:
     server.serve_forever()

@@ -17,6 +17,7 @@ import time
 import pystache
 import datetime
 import base64
+import logging
 import simplejson
 from functools import reduce
 from io import BytesIO
@@ -45,6 +46,9 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     """Largest digest that can be POSTed for timestamping"""
 
     digest_queue = None
+
+    def log_message(self, format, *args):
+        logging.debug("%s - %s", self.address_string(), format % args)
 
     def post_digest(self):
         content_length = self.headers['Content-Length']

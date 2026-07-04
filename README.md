@@ -17,6 +17,8 @@ wallet should not be used for other purposes, as currently the Bitcoin
 timestamping functionality assumes that it has exclusive use of the wallet.
 If your Bitcoin Core node has multiple wallets loaded, pass the wallet name to
 `otsd` with `--btc-wallet WALLET`.
+If Bitcoin Core is running on another host, pass the RPC endpoint to `otsd`
+with `--btc-rpc-url http://USER:PASSWORD@HOST:PORT`.
 
 Install the requirements:
 

@@ -91,6 +91,8 @@ parser.add_argument("--btc-max-fee", metavar='FEE', type=float,
                     help="Maximum transaction fee (default: %(default).3f BTC)")
 parser.add_argument("--btc-wallet", metavar='WALLET',
                     help="Bitcoin Core wallet name to use for timestamp transactions")
+parser.add_argument("--btc-rpc-url", metavar='URL',
+                    help="Bitcoin Core RPC URL, for example http://user:password@127.0.0.1:8332")
 
 btc_net_group = parser.add_mutually_exclusive_group()
 btc_net_group.add_argument('--btc-testnet', dest='btc_net', action='store_const',
@@ -156,7 +158,8 @@ stamper = otsserver.stamper.Stamper(calendar, exit_event,
                                     args.btc_min_tx_interval,
                                     args.btc_max_fee * bitcoin.core.COIN,
                                     args.max_pending,
-                                    args.btc_wallet)
+                                    args.btc_wallet,
+                                    args.btc_rpc_url)
 
 calendar.stamper = stamper
 
@@ -166,7 +169,8 @@ server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port),
                                    args.lightning_invoice_file,
                                    donation_address,
                                    args.explorer_url,
-                                   args.btc_wallet)
+                                   args.btc_wallet,
+                                   args.btc_rpc_url)
 
 try:
     server.serve_forever()

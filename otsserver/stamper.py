@@ -294,7 +294,7 @@ class Stamper:
         # FIXME: we shouldn't have to create a new proxy each time, but with
         # current python-bitcoinlib and the RPC implementation it seems that
         # the proxy connection can timeout w/o recovering properly.
-        proxy = make_proxy(self.btc_wallet)
+        proxy = make_proxy(wallet=self.btc_wallet, service_url=self.btc_rpc_url)
 
         new_blocks = self.known_blocks.update_from_proxy(proxy)
 
@@ -338,7 +338,7 @@ class Stamper:
                 except BrokenPipeError:
                     logging.error("BrokenPipeError to get block")
                     time.sleep(5)
-                    proxy = make_proxy(self.btc_wallet)
+                    proxy = make_proxy(wallet=self.btc_wallet, service_url=self.btc_rpc_url)
 
             # Pre-compute the block txids once, rather than recalculating them
             # for each unconfirmed_tx
@@ -452,7 +452,7 @@ class Stamper:
         logging.debug("New tip is %s" % b2x(tip_timestamp.msg))
         # make_merkle_tree() seems to take long enough on really big adds
         # that the proxy dies
-        proxy = make_proxy(self.btc_wallet)
+        proxy = make_proxy(wallet=self.btc_wallet, service_url=self.btc_rpc_url)
 
         sent_tx = None
         while sent_tx is None:
@@ -601,11 +601,12 @@ class Stamper:
 
         return False
 
-    def __init__(self, calendar, exit_event, conf_target, relay_feerate, min_confirmations, min_tx_interval, max_fee, max_pending, btc_wallet=None):
+    def __init__(self, calendar, exit_event, conf_target, relay_feerate, min_confirmations, min_tx_interval, max_fee, max_pending, btc_wallet=None, btc_rpc_url=None):
         self.calendar = calendar
         self.exit_event = exit_event
 
         self.btc_wallet = btc_wallet
+        self.btc_rpc_url = btc_rpc_url
         self.conf_target = conf_target
         self.relay_feerate = relay_feerate
         self.min_confirmations = min_confirmations

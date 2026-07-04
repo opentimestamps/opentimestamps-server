@@ -3,8 +3,11 @@ import urllib.parse
 import bitcoin.rpc
 
 
-def make_proxy(wallet=None, **kwargs):
+def make_proxy(wallet=None, service_url=None, **kwargs):
     """Create a Bitcoin Core RPC proxy, optionally scoped to a wallet."""
+
+    if service_url is not None:
+        kwargs['service_url'] = service_url
 
     proxy = bitcoin.rpc.Proxy(**kwargs)
 

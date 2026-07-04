@@ -217,7 +217,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
 
             try:
-                proxy = make_proxy(self.btc_wallet)
+                proxy = make_proxy(wallet=self.btc_wallet, service_url=self.btc_rpc_url)
             except Exception as err:
                 return
 
@@ -377,7 +377,7 @@ Latest mined transactions: </br>
 
 
 class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file, donation_addr, explorer_url, btc_wallet=None):
+    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file, donation_addr, explorer_url, btc_wallet=None, btc_rpc_url=None):
 
         class rpc_request_handler(RPCRequestHandler):
             pass
@@ -387,6 +387,7 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
         rpc_request_handler.donation_addr = donation_addr
         rpc_request_handler.explorer_url = explorer_url
         rpc_request_handler.btc_wallet = btc_wallet
+        rpc_request_handler.btc_rpc_url = btc_rpc_url
 
         journal = Journal(calendar.path + '/journal')
         rpc_request_handler.backup = Backup(journal, calendar, calendar.path + '/backup_cache')

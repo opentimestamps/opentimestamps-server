@@ -93,7 +93,14 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_header('Content-Length', len(serialized_timestamp))
         self.end_headers()
 
-        self.wfile.write(serialized_timestamp)
+        try:
+            self.wfile.write(serialized_timestamp)
+        except (BrokenPipeError, ConnectionResetError):
+            logging.debug(
+                "Client %s:%d disconnected before receiving the timestamp",
+                self.client_address[0],
+                self.client_address[1],
+            )
 
     def get_tip(self):
         try:

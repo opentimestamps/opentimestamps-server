@@ -253,6 +253,9 @@ class AskBackup(threading.Thread):
         elif self.btc_net == 'regtest':
             bitcoin.SelectParams('regtest')
 
+        proxy = bitcoin.rpc.Proxy()
+        block_headers = {}
+
         while True:
             start_time = time.time()
             backup_url = urljoin(self.calendar_url, "/experimental/backup/%d" % (last_known + 1))
@@ -285,22 +288,24 @@ class AskBackup(threading.Thread):
                     op = Op.deserialize(ctx)
                     ops[key] = op
 
-            proxy = bitcoin.rpc.Proxy()
-
             # Verify all bitcoin attestation are valid
             logging.debug("Total attestations: " + str(len(attestations)))
             for key, attestation in attestations.items():
                 if attestation.__class__ == BitcoinBlockHeaderAttestation:
                     while True:
                         try:
-                            blockhash = proxy.getblockhash(attestation.height)
-                            block_header = proxy.getblockheader(blockhash)
+                            block_header = block_headers.get(attestation.height)
+                            if block_header is None:
+                                blockhash = proxy.getblockhash(attestation.height)
+                                block_header = proxy.getblockheader(blockhash)
+                                block_headers[attestation.height] = block_header
                             # the following raise an exception and block computation if the attestation does not verify
                             attested_time = attestation.verify_against_blockheader(key, block_header)
                             logging.debug("Verifying " + b2x(key) + " result " + str(attested_time))
                             break
                         except Exception as err:
                             logging.info("%s - error contacting bitcoin node, sleeping..." % (err))
+                            block_headers.pop(attestation.height, None)
                             time.sleep(SLEEP_SECS)
                             proxy = bitcoin.rpc.Proxy()
 

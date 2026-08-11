@@ -51,14 +51,14 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         # Might be missing or otherwise invalid
         try:
             content_length = int(content_length)
-        except TypeError:
+        except (TypeError, ValueError):
             self.send_response(400)
             self.send_header('Content-Type', 'text/plain')
             self.end_headers()
             self.wfile.write(b'invalid Content-Length')
             return
 
-        if content_length > self.MAX_DIGEST_LENGTH:
+        if not (0 <= content_length <= self.MAX_DIGEST_LENGTH):
             self.send_response(400)
             self.send_header('Content-Type', 'text/plain')
             self.end_headers()

@@ -546,7 +546,7 @@ class Stamper:
                     logging.error("Proxy Authentication Error: Is bitcoincore running?: %r" % err)
                     time.sleep(5)
                 else:
-                    logging.error("__do_bitcoin() failed: %r" % exp, exc_info=True)
+                    logging.error("__do_bitcoin() failed: %r" % err, exc_info=True)
             except Exception as exp:
                 # !@#$ Python.
                 #

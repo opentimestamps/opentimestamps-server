@@ -17,6 +17,7 @@ import time
 import pystache
 import datetime
 import base64
+import logging
 import simplejson
 from functools import reduce
 from io import BytesIO
@@ -25,6 +26,7 @@ import bitcoin.core
 from bitcoin.core import b2lx, b2x, COIN
 
 from otsserver.backup import Backup
+from otsserver.bitcoin_rpc import make_proxy
 import otsserver
 from opentimestamps.core.serialize import BytesSerializationContext
 
@@ -44,6 +46,9 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     """Largest digest that can be POSTed for timestamping"""
 
     digest_queue = None
+
+    def log_message(self, format, *args):
+        logging.debug("%s - %s", self.address_string(), format % args)
 
     def post_digest(self):
         content_length = self.headers['Content-Length']
@@ -78,7 +83,14 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_header('Content-Length', len(serialized_timestamp))
         self.end_headers()
 
-        self.wfile.write(serialized_timestamp)
+        try:
+            self.wfile.write(serialized_timestamp)
+        except (BrokenPipeError, ConnectionResetError):
+            logging.warning(
+                "Client %s:%d disconnected before receiving the timestamp",
+                self.client_address[0],
+                self.client_address[1],
+            )
 
     def get_tip(self):
         try:
@@ -212,7 +224,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
 
             try:
-                proxy = bitcoin.rpc.Proxy()
+                proxy = make_proxy(self.btc_wallet)
             except Exception as err:
                 return
 
@@ -372,7 +384,7 @@ Latest mined transactions: </br>
 
 
 class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file, donation_addr, explorer_url):
+    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file, donation_addr, explorer_url, btc_wallet=None):
 
         class rpc_request_handler(RPCRequestHandler):
             pass
@@ -381,6 +393,7 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
         rpc_request_handler.lightning_invoice_file = lightning_invoice_file
         rpc_request_handler.donation_addr = donation_addr
         rpc_request_handler.explorer_url = explorer_url
+        rpc_request_handler.btc_wallet = btc_wallet
 
         journal = Journal(calendar.path + '/journal')
         rpc_request_handler.backup = Backup(journal, calendar, calendar.path + '/backup_cache')
@@ -389,4 +402,3 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
     def serve_forever(self):
         super().serve_forever()
-

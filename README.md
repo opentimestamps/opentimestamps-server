@@ -83,6 +83,12 @@ By default `otsd` binds to localhost; `otsd` is not designed to be exposed
 directly to the public and requires a reverse proxy for production usage. An
 example configuration for nginx is provided under `contrib/nginx`.
 
+For simple monitoring of timestamp transaction activity, start `otsd` with
+`--max-mined-tx-age-blocks X`. The status page contains the exact text
+`Timestamp transaction status: OK` while the latest mined timestamp
+transaction is no more than X blocks old. The marker is omitted when the
+threshold is exceeded or the option is not set.
+
 ## Unit tests
 
 ```

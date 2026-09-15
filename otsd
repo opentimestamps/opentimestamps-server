@@ -93,6 +93,8 @@ parser.add_argument("--btc-wallet", metavar='WALLET',
                     help="Bitcoin Core wallet name to use for timestamp transactions")
 parser.add_argument("--btc-rpc-url", metavar='URL',
                     help="Bitcoin Core RPC URL, for example http://user:password@127.0.0.1:8332")
+parser.add_argument("--max-mined-tx-age-blocks", metavar='X', type=int,
+                    help="Show a healthy status marker while the latest mined timestamp transaction is at most X blocks old")
 
 btc_net_group = parser.add_mutually_exclusive_group()
 btc_net_group.add_argument('--btc-testnet', dest='btc_net', action='store_const',
@@ -140,6 +142,9 @@ elif args.btc_net == 'regtest':
 if not (1 <= args.btc_conf_target <= 1008):
     args.parser.error("--btc-conf-target must be in range 1 <= N <= 1008")
 
+if args.max_mined_tx_age_blocks is not None and args.max_mined_tx_age_blocks < 0:
+    args.parser.error("--max-mined-tx-age-blocks must be greater than or equal to 0")
+
 exit_event = threading.Event()
 
 calendar_path = os.path.expanduser(args.calendar_path)
@@ -169,8 +174,9 @@ server = otsserver.rpc.StampServer((args.rpc_address, args.rpc_port),
                                    args.lightning_invoice_file,
                                    donation_address,
                                    args.explorer_url,
-                                   args.btc_wallet,
-                                   args.btc_rpc_url)
+                                   btc_wallet=args.btc_wallet,
+                                   btc_rpc_url=args.btc_rpc_url,
+                                   max_mined_tx_age_blocks=args.max_mined_tx_age_blocks)
 
 try:
     server.serve_forever()

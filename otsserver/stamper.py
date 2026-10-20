@@ -11,6 +11,7 @@
 
 import collections
 import logging
+import math
 import threading
 import time
 import random
@@ -484,6 +485,14 @@ class Stamper:
                     # Insufficient priority - basically means we didn't
                     # pay enough, so try again with a higher feerate
                     bump_feerate *= 1.25
+
+                    # The fee of a replacement is limited by the value of its
+                    # input, so the max_fee check above may never trip. Bound
+                    # the feerate itself.
+                    vsize = (signed_tx.calc_weight() + 3) // 4
+                    if not math.isfinite(bump_feerate) or bump_feerate * vsize > self.max_fee:
+                        logging.error("Maximum txfee reached while bumping the feerate!")
+                        return
                     continue
 
                 else:

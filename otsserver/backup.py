@@ -10,14 +10,15 @@
 # in the LICENSE file.
 
 from bitcoin.core import b2x
-from opentimestamps.core.notary import TimeAttestation, BitcoinBlockHeaderAttestation
+from opentimestamps.core.notary import TimeAttestation, BitcoinBlockHeaderAttestation, VerificationError
 from opentimestamps.core.op import Op
-from opentimestamps.core.serialize import BytesSerializationContext, BytesDeserializationContext, TruncationError, \
-    StreamSerializationContext
+from opentimestamps.core.serialize import BytesSerializationContext, BytesDeserializationContext, \
+    DeserializationError, StreamSerializationContext
 import bitcoin.rpc
 import plyvel
 import logging
 import socketserver
+import http.client
 import http.server
 import os
 import threading
@@ -28,6 +29,12 @@ import time
 from urllib.parse import urlparse, urljoin
 
 PAGING = 1000  # Number of commitments per chunk
+# Errors that mean the node can't be asked, as opposed to answering "no"
+NODE_ERRORS = (OSError, http.client.HTTPException, bitcoin.rpc.JSONRPCError)
+
+# Errors of a chunk that cannot be parsed or applied exactly
+CHUNK_ERRORS = (DeserializationError, ValueError, OverflowError)
+
 SLEEP_SECS = 60  # Once the backup is synced this is the polling interval to check for new chunks
 
 
@@ -83,18 +90,20 @@ class Backup:
 
     @staticmethod
     def bytes_to_kv_map(kv_bytes):
+        """Parse a chunk
+
+        Raises DeserializationError if the chunk ends inside an entry, and
+        OverflowError if a length is too large to read.
+        """
         ctx = BytesDeserializationContext(kv_bytes)
         new_kv_map = {}
 
-        while True:
-            try:
-                key_len = ctx.read_varuint()
-                key = ctx.read_bytes(key_len)
-                value_len = ctx.read_varuint()
-                value = ctx.read_bytes(value_len)
-                new_kv_map[key] = value
-            except TruncationError:
-                break
+        while ctx.fd.tell() < len(kv_bytes):
+            key_len = ctx.read_varuint()
+            key = ctx.read_bytes(key_len)
+            value_len = ctx.read_varuint()
+            value = ctx.read_bytes(value_len)
+            new_kv_map[key] = value
 
         return new_kv_map
 
@@ -244,6 +253,33 @@ class AskBackup(threading.Thread):
 
         super().__init__(target=self.loop)
 
+    @staticmethod
+    def parse_chunk(kv_bytes):
+        """Parse a chunk and apply its ops
+
+        Returns the key-value map, the attestations and the ops of each key, and the results of the ops. Raises one
+        of CHUNK_ERRORS if the chunk is empty, does not parse exactly, or has an op that cannot be applied.
+        """
+        kv_map = Backup.bytes_to_kv_map(kv_bytes)
+        if not kv_map:
+            raise ValueError("empty chunk")
+        attestations = {}
+        ops = {}
+        for key, value in kv_map.items():
+            ctx = BytesDeserializationContext(value)
+
+            for _a in range(ctx.read_varuint()):
+                attestations.setdefault(key, []).append(TimeAttestation.deserialize(ctx))
+
+            for _b in range(ctx.read_varuint()):
+                ops.setdefault(key, []).append(Op.deserialize(ctx))
+
+            if ctx.fd.read(1):
+                raise DeserializationError("trailing bytes in the value of %s" % b2x(key))
+
+        op_results = {key: [op(key) for op in key_ops] for key, key_ops in ops.items()}
+        return kv_map, attestations, ops, op_results
+
     def loop(self):
         logging.info("Starting loop for %s" % self.calendar_url)
 
@@ -280,59 +316,110 @@ class AskBackup(threading.Thread):
                 time.sleep(SLEEP_SECS)
                 continue
 
-            kv_map = Backup.bytes_to_kv_map(r.content)
-            attestations = {}
-            ops = {}
-            for key, value in kv_map.items():
-                # print("--- key=" + b2x(key) + " value=" + b2x(value))
-                ctx = BytesDeserializationContext(value)
-
-                for _a in range(ctx.read_varuint()):
-                    attestation = TimeAttestation.deserialize(ctx)
-                    attestations[key] = attestation
-
-                for _b in range(ctx.read_varuint()):
-                    op = Op.deserialize(ctx)
-                    ops[key] = op
+            try:
+                kv_map, attestations, ops, op_results = self.parse_chunk(r.content)
+            except CHUNK_ERRORS as err:
+                # Chunks are imported in order: ask for this one again
+                logging.error("Malformed chunk %s: %r, sleeping for %d seconds" % (backup_url, err, SLEEP_SECS))
+                time.sleep(SLEEP_SECS)
+                continue
 
             # Verify all bitcoin attestation are valid
             logging.debug("Total attestations: " + str(len(attestations)))
-            for key, attestation in attestations.items():
-                if attestation.__class__ == BitcoinBlockHeaderAttestation:
+            verified = set()
+            unverified = set()
+            for key, key_attestations in attestations.items():
+                for attestation in key_attestations:
+                    if attestation.__class__ != BitcoinBlockHeaderAttestation:
+                        # Cannot be verified here: the key is not stored
+                        unverified.add(key)
+                        break
+                    refuted = False
                     while True:
                         try:
                             block_header = block_headers.get(attestation.height)
-                            if block_header is None:
+                            cached = block_header is not None
+                            if not cached:
+                                # A node that is still syncing does not know the block yet: wait for it
+                                block_count = proxy.getblockcount()
+                                if attestation.height > block_count:
+                                    raise IndexError("height %d is above the block count %d"
+                                                     % (attestation.height, block_count))
                                 blockhash = proxy.getblockhash(attestation.height)
                                 block_header = proxy.getblockheader(blockhash)
                                 block_headers[attestation.height] = block_header
-                            # the following raise an exception and block computation if the attestation does not verify
                             attested_time = attestation.verify_against_blockheader(key, block_header)
                             logging.debug("Verifying " + b2x(key) + " result " + str(attested_time))
                             break
-                        except Exception as err:
-                            logging.info("%s - error contacting bitcoin node, sleeping..." % (err))
+                        except VerificationError as err:
+                            block_headers.pop(attestation.height, None)
+                            if cached:
+                                # The cached header may be from before a reorg: ask the node again
+                                continue
+                            # The node has the block and it does not match: the key is not stored
+                            logging.info("%s - bitcoin attestation of %s refuted, not stored" % (err, b2x(key)))
+                            refuted = True
+                            break
+                        except (IndexError,) + NODE_ERRORS as err:
+                            logging.info("%s - bitcoin node not ready or not reachable, sleeping..." % (err))
                             block_headers.pop(attestation.height, None)
                             time.sleep(SLEEP_SECS)
                             proxy = bitcoin.rpc.Proxy()
+                    if refuted:
+                        unverified.add(key)
+                        break
+                else:
+                    verified.add(key)
 
             # verify all ops connects to an attestation
             logging.debug("Total ops: " + str(len(ops)))
-            for key, op in ops.items():
-                current_key = key
-                current_op = op
-                while True:
-                    next_key = current_op(current_key)
-                    if next_key in ops:
-                        current_key = next_key
-                        current_op = ops[next_key]
+            # A key is good when all its attestations are verified and either it has no op and at
+            # least one attestation, or all its ops lead to good keys. A key is dropped when it is
+            # unverified (refuted or not a Bitcoin attestation) or any of its ops leads to a dropped
+            # key. A dropped key is not a malformed chunk: the rest is still stored.
+            good = verified - ops.keys()
+            dropped = set(unverified)
+            # Decide each key once, as soon as the keys its ops lead to settle it, so that a long
+            # chain costs time linear in its length
+            waiting = {}  # key -> how many of its op results are not known to be good yet
+            leading_to = {}  # op result -> the keys with an op that leads to it
+            for key, results in op_results.items():
+                if key not in dropped:
+                    waiting[key] = len(results)
+                    for result in results:
+                        leading_to.setdefault(result, []).append(key)
+            decided = list(good | dropped)
+            while decided:
+                result = decided.pop()
+                for key in leading_to.get(result, ()):
+                    if key in good or key in dropped:
+                        continue
+                    if result in dropped:
+                        dropped.add(key)
+                        decided.append(key)
                     else:
-                        break
-                assert next_key in attestations
+                        waiting[key] -= 1
+                        if not waiting[key]:
+                            good.add(key)
+                            decided.append(key)
+            for key in sorted(dropped):
+                logging.info("Not storing %s from %s: unverified, or leads to an unverified entry"
+                             % (b2x(key), backup_url))
+            for key in sorted(kv_map.keys() - attestations.keys() - ops.keys()):
+                logging.info("Not storing %s from %s: no attestation and no op" % (b2x(key), backup_url))
+            leads_nowhere = [key for key in ops if key not in good and key not in dropped]
+            if leads_nowhere:
+                # Malformed or cyclic: ask for the chunk again rather than skip it, as chunks are imported in order
+                logging.error("Op chain of %s does not reach a verified attestation, refusing chunk %s, "
+                              "sleeping for %d seconds" % (b2x(leads_nowhere[0]), backup_url, SLEEP_SECS))
+                time.sleep(SLEEP_SECS)
+                continue
 
+            # Only verified entries are stored
             with self.db.db.write_batch() as batch:
                 for key, value in kv_map.items():
-                    batch.put(key, value)
+                    if key in good:
+                        batch.put(key, value)
 
             last_known = last_known + 1
             try:

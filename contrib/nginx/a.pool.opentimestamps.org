@@ -2,6 +2,21 @@
 
 proxy_cache_path /tmp/nginx-cache levels=1:2 keys_zone=otsd:10m inactive=3600m max_size=1000m;
 
+# Per-address limits. The key is empty, and so the request is not limited, outside the two endpoints named here.
+map $uri $ots_digest_key {
+        default "";
+        /digest $binary_remote_addr;
+}
+map $uri $ots_backup_key {
+        default "";
+        ~^/experimental/backup/ $binary_remote_addr;
+}
+limit_req_zone $ots_digest_key zone=ots_digest:10m rate=2r/s;
+limit_req_zone $ots_backup_key zone=ots_backup:10m rate=1r/s;
+limit_conn_zone $binary_remote_addr zone=ots_conn:10m;
+limit_req_status 429;
+limit_conn_status 429;
+
 server {
         listen 443 default_server;
         listen [::]:443 default_server;
@@ -16,6 +31,15 @@ server {
 
 
         location / {
+        # A digest is at most 64 bytes, see MAX_DIGEST_LENGTH in otsserver/rpc.py
+        client_max_body_size 1k;
+
+        # 2 digests per second and address on average, with a burst of 60 served at once
+        limit_req zone=ots_digest burst=60 nodelay;
+        # One backup chunk is 1000 commitments and costs otsd about 10 s to build, when it is not cached
+        limit_req zone=ots_backup burst=20 nodelay;
+        limit_conn ots_conn 50;
+
         proxy_cache otsd;
         add_header X-Proxy-Cache $upstream_cache_status always;
 

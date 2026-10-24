@@ -10,7 +10,7 @@
 # in the LICENSE file.
 
 import hashlib
-import leveldb
+import plyvel
 import logging
 import os
 import queue
@@ -100,20 +100,18 @@ class JournalWriter(Journal):
         self.append_fd.flush()
         os.fsync(self.append_fd.fileno())
 
-class LevelDbCalendar:
+class PlyvelCalendar:
     def __init__(self, path):
-        self.db = leveldb.LevelDB(path)
+        self.db = plyvel.DB(path, create_if_missing=True)
 
     def __contains__(self, msg):
-        try:
-            self.db.Get(msg)
-            return True
-        except KeyError:
-            return False
+        return self.db.get(msg) is not None
 
     def __get_timestamp(self, msg):
         """Get a timestamp, non-recursively"""
-        serialized_timestamp = self.db.Get(msg)
+        serialized_timestamp = self.db.get(msg)
+        if serialized_timestamp is None:
+            raise KeyError(msg)
         ctx = BytesDeserializationContext(serialized_timestamp)
 
         timestamp = Timestamp(msg)
@@ -142,7 +140,7 @@ class LevelDbCalendar:
         for op in new_timestamp.ops:
             op.serialize(ctx)
 
-        batch.Put(new_timestamp.msg, ctx.getbytes())
+        batch.put(new_timestamp.msg, ctx.getbytes())
         batch_cache[new_timestamp.msg] = new_timestamp
 
     def __getitem__(self, msg):
@@ -186,7 +184,7 @@ class LevelDbCalendar:
         self.__put_timestamp(existing_timestamp, batch, batch_cache)
 
     def add_timestamps(self, new_timestamps):
-        batch = leveldb.WriteBatch()
+        batch = self.db.write_batch(sync=True)
         batch_cache = {}
 
         last = time.time()
@@ -197,13 +195,13 @@ class LevelDbCalendar:
 
             if n % 10000 == 0:
                 now = time.time()
-                logging.debug("Added %d timestamps to LevelDB; %f stamps/second" %
+                logging.debug("Added %d timestamps to Plyvel; %f stamps/second" %
                               (n, 10000.0 / (now - last)))
                 last = now
         del batch_cache
 
-        self.db.Write(batch, sync=True)
-        logging.debug("Done LevelDbCalendar.add_timestamps(), added %d timestamps total" % n)
+        batch.write()
+        logging.debug("Done PlyvelCalendar.add_timestamps(), added %d timestamps total" % n)
 
 class Calendar:
     def __init__(self, path):
@@ -212,7 +210,7 @@ class Calendar:
         self.path = path
         self.journal = JournalWriter(path + '/journal')
 
-        self.db = LevelDbCalendar(path + '/db')
+        self.db = PlyvelCalendar(path + '/db')
 
         try:
             uri_path = self.path + '/uri'

@@ -18,14 +18,14 @@ from opentimestamps.core.timestamp import *
 
 from otsserver.calendar import *
 
-class Test_LevelDbCalendar(unittest.TestCase):
+class Test_PlyvelCalendar(unittest.TestCase):
     def test_creation(self):
         with tempfile.TemporaryDirectory() as db_path:
-            cal = LevelDbCalendar(db_path)
+            cal = PlyvelCalendar(db_path)
 
     def test_contains(self):
         with tempfile.TemporaryDirectory() as db_path:
-            cal = LevelDbCalendar(db_path)
+            cal = PlyvelCalendar(db_path)
 
             t = Timestamp(b'foo')
 
@@ -36,7 +36,7 @@ class Test_LevelDbCalendar(unittest.TestCase):
     def test_chain_timestamp(self):
         """Add/retrieve a timestamp with multiple operations"""
         with tempfile.TemporaryDirectory() as db_path:
-            cal = LevelDbCalendar(db_path)
+            cal = PlyvelCalendar(db_path)
 
             t1 = Timestamp(b'foo')
             t2 = t1.ops.add(OpAppend(b'bar'))
@@ -53,7 +53,7 @@ class Test_LevelDbCalendar(unittest.TestCase):
     def test_merkle_tree_timestamps(self):
         """Add/retrieve a merkle tree of timestamps"""
         with tempfile.TemporaryDirectory() as db_path:
-            cal = LevelDbCalendar(db_path)
+            cal = PlyvelCalendar(db_path)
 
             roots = [Timestamp(bytes([i])) for i in range(256)]
             merkle_tip = make_merkle_tree(roots)

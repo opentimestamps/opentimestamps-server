@@ -83,7 +83,7 @@ elif args.verbosity == -1:
 elif args.verbosity < -1:
     logging.root.setLevel(logging.ERROR)
 
-db = otsserver.calendar.LevelDbCalendar(db_dir)
+db = otsserver.calendar.PlyvelCalendar(db_dir)
 calendar = otsserver.backup.BackupCalendar(db)
 server = otsserver.backup.BackupServer((args.rpc_address, args.rpc_port), calendar)
 

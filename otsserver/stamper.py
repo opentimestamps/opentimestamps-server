@@ -180,8 +180,8 @@ def listunspent(proxy, minconf=0, maxconf=999999):
 
 def find_unspent(proxy):
     def sort_filter_unspent(unspent):
-        return list(reversed(sorted(filter(lambda x: x['amount'] > DUST and x['spendable'], unspent),
-                      key=lambda x: x['amount'])))
+        return sorted(filter(lambda x: x['amount'] > DUST and x['spendable'], unspent),
+                      key=lambda x: x['amount'])
 
     unspent = sort_filter_unspent(listunspent(proxy, 1))
 

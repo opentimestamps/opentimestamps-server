@@ -37,6 +37,8 @@ class Backup:
         self.calendar = calendar
         self.cache_path = cache_path
         os.makedirs(cache_path, exist_ok=True)
+        # One chunk is built at a time, so that concurrent requests for uncached chunks do not multiply the CPU load
+        self.build_lock = threading.Lock()
 
     # Return the bytes of the chunk
     def __getitem__(self, chunk):
@@ -49,30 +51,35 @@ class Backup:
         if cached_kv_bytes is not None:
             return cached_kv_bytes
 
-        # TODO next code must be run only once, LOCK or something
-        backup_map = {}
-        start = chunk*PAGING
-        end = start+PAGING
+        with self.build_lock:
+            # Another request may have built the chunk while this one waited
+            cached_kv_bytes = self.read_disk_cache(chunk)
+            if cached_kv_bytes is not None:
+                return cached_kv_bytes
 
-        # Iterate in reverse to fail fast if this chunk is not complete, a chunk is considered complete if all relative
-        # 1000 commitments are complete. Which means a tx with more of 6 confirmations timestamp them
-        for i in range(start, end)[::-1]:
-            try:
-                current = self.journal[i]
-                current_el = self.calendar[current]
-                self.__create_kv_map(current_el, current_el.msg, backup_map)
-            except KeyError:
-                # according to https://docs.python.org/3/library/exceptions.html#IndexError IndexError is the more
-                # appropriate exception for this case
-                raise IndexError
-            if i % 1000 == 0:
-                logging.debug("Got commitment " + str(i) + ":" + b2x(self.journal[i]))
+            backup_map = {}
+            start = chunk*PAGING
+            end = start+PAGING
 
-        logging.debug("map len " + str(len(backup_map)) + " start:" + str(start) + " end:" + str(end))
-        kv_bytes = self.__kv_map_to_bytes(backup_map)
-        self.write_disk_cache(chunk, kv_bytes)
+            # Iterate in reverse to fail fast if this chunk is not complete, a chunk is considered complete if all
+            # relative 1000 commitments are complete. Which means a tx with more of 6 confirmations timestamp them
+            for i in range(start, end)[::-1]:
+                try:
+                    current = self.journal[i]
+                    current_el = self.calendar[current]
+                    self.__create_kv_map(current_el, current_el.msg, backup_map)
+                except KeyError:
+                    # according to https://docs.python.org/3/library/exceptions.html#IndexError IndexError is the more
+                    # appropriate exception for this case
+                    raise IndexError
+                if i % 1000 == 0:
+                    logging.debug("Got commitment " + str(i) + ":" + b2x(self.journal[i]))
 
-        return kv_bytes
+            logging.debug("map len " + str(len(backup_map)) + " start:" + str(start) + " end:" + str(end))
+            kv_bytes = self.__kv_map_to_bytes(backup_map)
+            self.write_disk_cache(chunk, kv_bytes)
+
+            return kv_bytes
 
     @staticmethod
     def bytes_to_kv_map(kv_bytes):

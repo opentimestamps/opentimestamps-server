@@ -3,8 +3,8 @@
 proxy_cache_path /tmp/nginx-cache levels=1:2 keys_zone=otsd:10m inactive=3600m max_size=1000m;
 
 server {
-        listen 443 default_server;
-        listen [::]:443 default_server;
+        listen 443 ssl default_server;
+        listen [::]:443 ssl default_server;
         server_name a.pool.opentimestamps.org;
 
         root /dev/null;
@@ -26,7 +26,6 @@ server {
         proxy_set_header Host $host;
         }
 
-    ssl on;
     ssl_certificate /etc/letsencrypt/live/a.pool.opentimestamps.org/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/a.pool.opentimestamps.org/privkey.pem;
 

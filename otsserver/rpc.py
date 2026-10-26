@@ -17,6 +17,7 @@ import time
 import pystache
 import datetime
 import base64
+import logging
 import simplejson
 from functools import reduce
 from io import BytesIO
@@ -25,11 +26,22 @@ import bitcoin.core
 from bitcoin.core import b2lx, b2x, COIN
 
 from otsserver.backup import Backup
+from otsserver.bitcoin_rpc import make_proxy
 import otsserver
 from opentimestamps.core.serialize import BytesSerializationContext
 
 from otsserver.calendar import Journal
 renderer = pystache.Renderer()
+
+
+def is_recent_mined_transaction(transactions, max_age_blocks):
+    if max_age_blocks is None or not transactions:
+        return False
+
+    # A transaction included in the current tip has one confirmation and is
+    # zero blocks old.
+    latest_transaction_age = min(tx["confirmations"] for tx in transactions) - 1
+    return latest_transaction_age <= max_age_blocks
 
 
 def get_qr(data):
@@ -44,6 +56,9 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     """Largest digest that can be POSTed for timestamping"""
 
     digest_queue = None
+
+    def log_message(self, format, *args):
+        logging.debug("%s - %s", self.address_string(), format % args)
 
     def post_digest(self):
         content_length = self.headers['Content-Length']
@@ -78,7 +93,14 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_header('Content-Length', len(serialized_timestamp))
         self.end_headers()
 
-        self.wfile.write(serialized_timestamp)
+        try:
+            self.wfile.write(serialized_timestamp)
+        except (BrokenPipeError, ConnectionResetError):
+            logging.debug(
+                "Client %s:%d disconnected before receiving the timestamp",
+                self.client_address[0],
+                self.client_address[1],
+            )
 
     def get_tip(self):
         try:
@@ -212,7 +234,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
 
             try:
-                proxy = bitcoin.rpc.Proxy()
+                proxy = make_proxy(wallet=self.btc_wallet, service_url=self.btc_rpc_url)
             except Exception as err:
                 return
 
@@ -251,6 +273,10 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             for tx in transactions:
                 tx["feerate"] = "{:.2f}".format(tx["feerate"])
 
+            transaction_status_ok = is_recent_mined_transaction(
+                transactions, self.max_mined_tx_age_blocks
+            )
+
             lightning_invoice = None
             lightning_invoice_qr = None
             if self.lightning_invoice_file is not None:
@@ -279,6 +305,9 @@ Most recent merkle tree tip: {{ tip }}</br>
 Best-block: <a href="{{ explorer_url }}/block/{{ best_block }}">{{ best_block }}</a>, height {{ block_height }}</br>
 </br>
 Wallet balance: {{ balance }} sats (confirmed)</br>
+{{#transaction_status_ok}}
+Timestamp transaction status: OK</br>
+{{/transaction_status_ok}}
 </p>
 
 <hr>
@@ -337,6 +366,7 @@ Latest mined transactions: </br>
               'best_block': bitcoin.core.b2lx(proxy.getbestblockhash()),
               'block_height': proxy.getblockcount(),
               'balance': str_sat(wallet_balance),
+              'transaction_status_ok': transaction_status_ok,
               'address': address,
               'address_qr': get_qr(address),
               'transactions': transactions[:288],
@@ -372,7 +402,8 @@ Latest mined transactions: </br>
 
 
 class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file, donation_addr, explorer_url):
+    def __init__(self, server_address, aggregator, calendar, lightning_invoice_file, donation_addr, explorer_url,
+                 btc_wallet=None, btc_rpc_url=None, max_mined_tx_age_blocks=None):
 
         class rpc_request_handler(RPCRequestHandler):
             pass
@@ -381,6 +412,9 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
         rpc_request_handler.lightning_invoice_file = lightning_invoice_file
         rpc_request_handler.donation_addr = donation_addr
         rpc_request_handler.explorer_url = explorer_url
+        rpc_request_handler.btc_wallet = btc_wallet
+        rpc_request_handler.btc_rpc_url = btc_rpc_url
+        rpc_request_handler.max_mined_tx_age_blocks = max_mined_tx_age_blocks
 
         journal = Journal(calendar.path + '/journal')
         rpc_request_handler.backup = Backup(journal, calendar, calendar.path + '/backup_cache')
@@ -389,4 +423,3 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
     def serve_forever(self):
         super().serve_forever()
-

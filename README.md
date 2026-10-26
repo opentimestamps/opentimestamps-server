@@ -15,6 +15,10 @@ You'll need a local Bitcoin node (version 24.0 is known to work) with a wallet
 with some funds in it; a pruned node is fine. While `otsd` is running the
 wallet should not be used for other purposes, as currently the Bitcoin
 timestamping functionality assumes that it has exclusive use of the wallet.
+If your Bitcoin Core node has multiple wallets loaded, pass the wallet name to
+`otsd` with `--btc-wallet WALLET`.
+If Bitcoin Core is running on another host, pass the RPC endpoint to `otsd`
+with `--btc-rpc-url http://USER:PASSWORD@HOST:PORT`.
 
 Install the requirements:
 
@@ -78,6 +82,12 @@ bitcoin-cli -generate 10
 By default `otsd` binds to localhost; `otsd` is not designed to be exposed
 directly to the public and requires a reverse proxy for production usage. An
 example configuration for nginx is provided under `contrib/nginx`.
+
+For simple monitoring of timestamp transaction activity, start `otsd` with
+`--max-mined-tx-age-blocks X`. The status page contains the exact text
+`Timestamp transaction status: OK` while the latest mined timestamp
+transaction is no more than X blocks old. The marker is omitted when the
+threshold is exceeded or the option is not set.
 
 ## Unit tests
 

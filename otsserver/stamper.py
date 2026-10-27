@@ -313,6 +313,10 @@ class Stamper:
             if confirmed_tx is not None:
                 self.__save_confirmed_timestamp_tx(confirmed_tx)
 
+                # Saving a big tx can take longer than Bitcoin Core's
+                # rpcservertimeout, which then closes our idle connection.
+                proxy = make_proxy(wallet=self.btc_wallet, service_url=self.btc_rpc_url)
+
             # If there already are txs waiting for confirmation at this
             # block_height, there was a reorg and those pending commitments now
             # need to be added back to the pool
@@ -335,8 +339,10 @@ class Stamper:
                     # Must have been a reorg or something, return
                     logging.error("Failed to get block")
                     return
-                except BrokenPipeError:
-                    logging.error("BrokenPipeError to get block")
+                except ConnectionError as err:
+                    # Includes BrokenPipeError, and http.client.RemoteDisconnected
+                    # when Bitcoin Core has closed an idle connection
+                    logging.error("Failed to get block: %r" % err)
                     time.sleep(5)
                     proxy = make_proxy(wallet=self.btc_wallet, service_url=self.btc_rpc_url)
 

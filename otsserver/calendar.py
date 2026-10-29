@@ -152,7 +152,11 @@ class PlyvelCalendar:
 
         return timestamp
 
-    def __add_timestamp(self, new_timestamp, batch, batch_cache):
+    def __add_timestamp(self, new_timestamp, batch, batch_cache, added):
+        if added.get(new_timestamp.msg) is new_timestamp:
+            return
+        added[new_timestamp.msg] = new_timestamp
+
         existing_timestamp = None
         try:
             if new_timestamp.msg in batch_cache:
@@ -179,18 +183,19 @@ class PlyvelCalendar:
             existing_timestamp.ops.add(new_op)
 
             # Add the results timestamp to the calendar
-            self.__add_timestamp(new_op_stamp, batch, batch_cache)
+            self.__add_timestamp(new_op_stamp, batch, batch_cache, added)
 
         self.__put_timestamp(existing_timestamp, batch, batch_cache)
 
     def add_timestamps(self, new_timestamps):
         batch = self.db.write_batch(sync=True)
         batch_cache = {}
+        added = {}
 
         last = time.time()
         n = 0
         for new_timestamp in new_timestamps:
-            self.__add_timestamp(new_timestamp, batch, batch_cache)
+            self.__add_timestamp(new_timestamp, batch, batch_cache, added)
             n += 1
 
             if n % 10000 == 0:
@@ -198,7 +203,7 @@ class PlyvelCalendar:
                 logging.debug("Added %d timestamps to Plyvel; %f stamps/second" %
                               (n, 10000.0 / (now - last)))
                 last = now
-        del batch_cache
+        del batch_cache, added
 
         batch.write()
         logging.debug("Done PlyvelCalendar.add_timestamps(), added %d timestamps total" % n)

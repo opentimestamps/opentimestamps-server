@@ -22,12 +22,12 @@ with `--btc-rpc-url http://USER:PASSWORD@HOST:PORT`.
 
 Install the requirements:
 
-```
+```shell
 pip3 install -r requirements.txt
 ```
 
 Create the calendar:
-```
+```shell
 mkdir -p ~/.otsd/calendar/
 echo "http://127.0.0.1:14788" > ~/.otsd/calendar/uri
 echo "bitcoin donation address" > ~/.otsd/calendar/donation_addr
@@ -54,7 +54,7 @@ protocol does *not* distinguish between mainnet, testnet, and regtest, so make
 sure you don't mix them up!
 
 To use your calendar server, tell your OpenTimestamps client to connect to it:
-```
+```shell
 ots stamp -c http://127.0.0.1:14788 -m 1 FILE
 ```
 
@@ -62,20 +62,20 @@ OpenTimestamps clients have a whitelist of calendars they'll connect to
 automatically; you'll need to manually add your new server to that whitelist to
 use it when upgrading or verifying:
 
-```
+```shell
 ots -l http://127.0.0.1:14788 upgrade FILE.ots
 ```
 
 If your server is running on testnet or regtest, make sure to tell your client
 what chain to use when verifying. For example, regtest:
-```
+```shell
 ots --btc-regtest -l http://127.0.0.1:14788 upgrade FILE.ots
 ```
 
 Tip: with regtest you can mine blocks on demand to make your timestamp confirm
 with the `generate` RPC command. For example, to mine ten blocks instantly:
 
-```
+```shell
 bitcoin-cli -generate 10
 ```
 
@@ -91,6 +91,6 @@ threshold is exceeded or the option is not set.
 
 ## Unit tests
 
-```
+```shell
 python3 -m unittest discover -v
 ```

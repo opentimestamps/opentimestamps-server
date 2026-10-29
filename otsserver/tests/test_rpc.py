@@ -34,6 +34,19 @@ class TestRequestHandler(RPCRequestHandler):
         pass
 
 
+class TestUnknownPath(unittest.TestCase):
+    def test_qr_path_is_not_found(self):
+        responses = []
+        handler = object.__new__(TestRequestHandler)
+        handler.send_response = lambda code, message=None: responses.append(code)
+        handler.path = "/qr/abc"
+        handler.wfile = BytesIO()
+
+        handler.do_GET()
+
+        self.assertEqual(responses, [404])
+
+
 class TestTransactionStatus(unittest.TestCase):
     def render_status_page(self, confirmations, max_age_blocks):
         transactions = [

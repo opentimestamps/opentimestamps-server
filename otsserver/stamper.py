@@ -586,26 +586,51 @@ class Stamper:
         if commitment in self.pending_commitments:
             return "Pending confirmation in Bitcoin blockchain"
 
-        else:
-            journal = Journal(self.calendar.path + '/journal')
-            idx = self.journal_cursor
-            while idx is not None:
-                # cursor is None when stamper loop never executed once
-                try:
-                    recent_commitment = journal[idx]
-                except KeyError:
-                    break
-                if recent_commitment == commitment:
-                    return "Pending confirmation in Bitcoin blockchain"
-                idx += 1
+        elif self.__in_journal_backlog(commitment):
+            return "Pending confirmation in Bitcoin blockchain"
 
-            for height, ttx in self.txs_waiting_for_confirmation.items():
+        else:
+            # A copy: the stamper thread changes the dict while requests read it
+            for height, ttx in tuple(self.txs_waiting_for_confirmation.items()):
                for commitment_timestamp in ttx.commitment_timestamps:
                     if commitment == commitment_timestamp.msg:
                         return "Timestamped by transaction %s; waiting for %d confirmations"\
                                % (b2lx(ttx.tx.GetTxid()), self.min_confirmations)
 
         return False
+
+    def __in_journal_backlog(self, commitment):
+        """Whether commitment is in the journal after the stamper loop's cursor
+
+        The commitments there are kept in a set, brought up to date on each
+        call, so that a request reads only the journal entries added or
+        consumed since the last one, not everything after the cursor.
+        """
+        with self.backlog_lock:
+            cursor = self.journal_cursor
+            if cursor is None:
+                # The stamper loop has not run yet
+                return False
+            journal = Journal(self.calendar.path + '/journal')
+            try:
+                if self.backlog_end <= cursor:
+                    self.backlog.clear()
+                    self.backlog_start = self.backlog_end = cursor
+                else:
+                    # Forget what the stamper loop has read since the last call
+                    while self.backlog_start < cursor:
+                        self.backlog.discard(journal[self.backlog_start])
+                        self.backlog_start += 1
+                # Add what was written since the last call
+                while True:
+                    try:
+                        self.backlog.add(journal[self.backlog_end])
+                    except KeyError:
+                        break
+                    self.backlog_end += 1
+            finally:
+                journal.read_fd.close()
+            return commitment in self.backlog
 
     def __init__(self, calendar, exit_event, conf_target, relay_feerate, min_confirmations, min_tx_interval, max_fee, max_pending, btc_wallet=None, btc_rpc_url=None):
         self.calendar = calendar
@@ -629,6 +654,10 @@ class Stamper:
 
         self.next_timestamp_tx = time.time()
         self.journal_cursor = None
+
+        self.backlog_lock = threading.Lock()
+        self.backlog = set()
+        self.backlog_start = self.backlog_end = 0
 
         self.thread = threading.Thread(target=self.__loop)
         self.thread.start()

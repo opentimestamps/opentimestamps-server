@@ -384,8 +384,6 @@ Latest mined transactions: </br>
 
         elif self.path.startswith('/timestamp/'):
             self.get_timestamp()
-        elif self.path.startswith('/qr/'):
-            self.get_qr()
         elif self.path == '/tip':
             self.get_tip()
         elif self.path.startswith('/experimental/backup/'):

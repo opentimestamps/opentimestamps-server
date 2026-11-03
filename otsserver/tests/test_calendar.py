@@ -11,6 +11,7 @@
 
 import tempfile
 import unittest
+from unittest import mock
 
 from bitcoin.core import *
 
@@ -66,3 +67,29 @@ class Test_PlyvelCalendar(unittest.TestCase):
             for root in roots:
                 retrieved_root = cal[root.msg]
                 self.assertEqual(root, retrieved_root)
+
+    def test_shared_nodes_written_once(self):
+        """Nodes shared by timestamps added together are written once"""
+        with tempfile.TemporaryDirectory() as db_path:
+            cal = PlyvelCalendar(db_path)
+
+            db = cal.db
+            batches = []
+            def write_batch(**kwargs):
+                batch = mock.Mock(wraps=db.write_batch(**kwargs))
+                batches.append(batch)
+                return batch
+            cal.db = mock.Mock(get=db.get, write_batch=write_batch)
+
+            roots = [Timestamp(bytes([i])) for i in range(256)]
+            merkle_tip = make_merkle_tree(roots)
+            merkle_tip.attestations.add(BitcoinBlockHeaderAttestation(1))
+
+            cal.add_timestamps(roots)
+
+            self.assertEqual(len(batches), 1)
+            keys = [call.args[0] for call in batches[0].put.call_args_list]
+            self.assertEqual(len(keys), len(set(keys)))
+
+            for root in roots:
+                self.assertEqual(root, cal[root.msg])

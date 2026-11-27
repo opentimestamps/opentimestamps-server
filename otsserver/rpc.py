@@ -11,8 +11,12 @@
 
 import binascii
 import http.server
+import io
 import qrcode
+import resource
+import socket
 import socketserver
+import threading
 import time
 import pystache
 import datetime
@@ -51,6 +55,26 @@ def get_qr(data):
     return base64.b64encode(buf.getvalue())
 
 
+class DeadlineSocketIO(socket.SocketIO):
+    """Raw reader of a socket that gives up at a fixed time
+
+    Each read waits for at most `read_timeout` seconds, and for no longer than
+    the time left until `deadline_at` (a time.monotonic() value).
+    """
+
+    def __init__(self, sock, read_timeout, deadline_at):
+        super().__init__(sock, 'rb')
+        self.read_timeout = read_timeout
+        self.deadline_at = deadline_at
+
+    def readinto(self, b):
+        left = self.deadline_at - time.monotonic()
+        if left <= 0:
+            raise socket.timeout('deadline passed')
+        self._sock.settimeout(min(self.read_timeout, left))
+        return super().readinto(b)
+
+
 class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
     MAX_DIGEST_LENGTH = 64
     """Largest digest that can be POSTed for timestamping"""
@@ -59,6 +83,20 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
         logging.debug("%s - %s", self.address_string(), format % args)
+
+    timeout = 30
+    """Seconds a read may block before the connection is dropped"""
+
+    deadline = 60
+    """Seconds after which a connection is closed, however active"""
+
+    def setup(self):
+        super().setup()
+        # Every read waits at most `timeout` seconds and never past the deadline;
+        # no thread is spent on watching the clock
+        self.rfile.close()
+        raw = DeadlineSocketIO(self.connection, self.timeout, time.monotonic() + self.deadline)
+        self.rfile = io.BufferedReader(raw, self.rbufsize if self.rbufsize > 0 else io.DEFAULT_BUFFER_SIZE)
 
     def post_digest(self):
         content_length = self.headers['Content-Length']
@@ -81,6 +119,9 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             return
 
         digest = self.rfile.read(content_length)
+        if len(digest) != content_length:
+            # The connection was closed before the whole digest arrived
+            return
 
         timestamp = self.aggregator.submit(digest)
 
@@ -400,6 +441,30 @@ Latest mined transactions: </br>
 
 
 class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    MAX_WORKERS = None
+    """Most connections served at once; further ones wait to be accepted
+
+    None means the soft limit on open files minus RESERVED_FILES.
+    """
+
+    RESERVED_FILES = 256
+    """Open files kept for the server's own use: the calendar and backup
+    databases, the journal, the log, the listening socket and the connections
+    to bitcoind"""
+
+    FALLBACK_WORKERS = 1000
+    """Used where the limit on open files is not finite"""
+
+    @classmethod
+    def max_workers(cls):
+        if cls.MAX_WORKERS is not None:
+            return cls.MAX_WORKERS
+        soft, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
+        if soft == resource.RLIM_INFINITY:
+            return cls.FALLBACK_WORKERS
+        # Under a small limit, keep half of it rather than none
+        return max(soft - cls.RESERVED_FILES, soft // 2, 1)
+
     def __init__(self, server_address, aggregator, calendar, lightning_invoice_file, donation_addr, explorer_url,
                  btc_wallet=None, btc_rpc_url=None, max_mined_tx_age_blocks=None):
 
@@ -417,7 +482,46 @@ class StampServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
         journal = Journal(calendar.path + '/journal')
         rpc_request_handler.backup = Backup(journal, calendar, calendar.path + '/backup_cache')
 
+        self.worker_slots = threading.BoundedSemaphore(self.max_workers())
+        self.dropped_connections = 0
+        self.overload_logged_at = float('-inf')
+
         super().__init__(server_address, rpc_request_handler)
+
+    def process_request(self, request, client_address):
+        self.worker_slots.acquire()
+        try:
+            super().process_request(request, client_address)
+        except RuntimeError:
+            # No thread could be started: drop this connection and keep serving
+            self.worker_slots.release()
+            self.shutdown_request(request)
+            # The thread that did not start is still in the list server_close() joins
+            reap = getattr(self._threads, 'reap', None)
+            if reap is not None:
+                reap()
+            self.log_overload()
+        except BaseException:
+            self.worker_slots.release()
+            raise
+
+    OVERLOAD_LOG_INTERVAL = 10
+    """Seconds between two reports of connections dropped for lack of threads"""
+
+    def log_overload(self):
+        now = time.monotonic()
+        self.dropped_connections += 1
+        if now - self.overload_logged_at >= self.OVERLOAD_LOG_INTERVAL:
+            logging.error("Cannot start a thread, %d connections dropped since the last report"
+                          % self.dropped_connections)
+            self.dropped_connections = 0
+            self.overload_logged_at = now
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.worker_slots.release()
 
     def serve_forever(self):
         super().serve_forever()
